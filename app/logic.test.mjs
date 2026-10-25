@@ -1,7 +1,38 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
-  estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial } from "./logic.js";
+  estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial,
+  serieMensual, compararCategorias, escalaY } from "./logic.js";
+
+test("monthly series ends at the given month, oldest first, across the year", () => {
+  const g = [{ id: "a", monto: 1000, fecha: "2026-01-10", cat: "cafe", medio: "mp", hormiga: true },
+             { id: "b", monto: 5000, fecha: "2025-12-20", cat: "super", medio: "debito", hormiga: false }];
+  const s = serieMensual(g, 2026, 0, 3);
+  assert.deepEqual(s.map(x => [x.y, x.m, x.total, x.hormiga]), [[2025, 10, 0, 0], [2025, 11, 5000, 0], [2026, 0, 1000, 1000]]);
+});
+
+test("monthly series counts each installment in the month it is paid", () => {
+  const g = [{ id: "c", monto: 3000, fecha: "2026-01-15", cuotas: 3, cat: "ropa", medio: "credito", hormiga: false }];
+  assert.deepEqual(serieMensual(g, 2026, 3, 4).map(x => x.total), [1000, 1000, 1000, 0]);
+});
+
+test("category comparison: this month vs the previous one, biggest first, empty rows dropped", () => {
+  const g = [{ id: "1", monto: 2000, fecha: "2026-10-01", cat: "cafe", medio: "mp" },
+             { id: "2", monto: 1000, fecha: "2026-09-01", cat: "cafe", medio: "mp" },
+             { id: "3", monto: 500, fecha: "2026-09-03", cat: "kiosco", medio: "mp" },
+             { id: "4", monto: 9000, fecha: "2026-10-02", cat: "super", medio: "debito" }];
+  assert.deepEqual(compararCategorias(g, 2026, 9), [
+    { cat: "super", actual: 9000, anterior: 0, delta: 9000 },
+    { cat: "cafe", actual: 2000, anterior: 1000, delta: 1000 },
+    { cat: "kiosco", actual: 0, anterior: 500, delta: -500 },
+  ]);
+});
+
+test("y scale rounds up to a clean maximum with evenly spaced ticks", () => {
+  assert.deepEqual(escalaY(87000), { max: 100000, ticks: [0, 25000, 50000, 75000, 100000] });
+  assert.deepEqual(escalaY(140000), { max: 150000, ticks: [0, 50000, 100000, 150000] });
+  assert.deepEqual(escalaY(0), { max: 1000, ticks: [0, 250, 500, 750, 1000] });
+});
 
 test("parseMonto", () => {
   assert.equal(parseMonto("1.500"), 1500);

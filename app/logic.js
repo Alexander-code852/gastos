@@ -186,6 +186,49 @@ export function fijosPendientes(fijos, hoy = new Date()) {
   return { gastos, fijos: next };
 }
 
+const round2 = n => Math.round(n * 100) / 100;
+const sumarPorCat = movs => {
+  const acc = {};
+  for (const g of movs) acc[g.cat] = (acc[g.cat] || 0) + g.monto;
+  return acc;
+};
+
+// n months ending at month m of year y, oldest first; installments count in the month they are paid.
+export function serieMensual(gastos, y, m, n) {
+  const out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(y, m - i, 1);
+    const movs = movimientosDelMes(gastos, d.getFullYear(), d.getMonth());
+    out.push({
+      y: d.getFullYear(), m: d.getMonth(),
+      total: round2(movs.reduce((s, g) => s + g.monto, 0)),
+      hormiga: round2(movs.filter(g => g.hormiga).reduce((s, g) => s + g.monto, 0)),
+    });
+  }
+  return out;
+}
+
+export function compararCategorias(gastos, y, m) {
+  const prev = new Date(y, m - 1, 1);
+  const actual = sumarPorCat(movimientosDelMes(gastos, y, m));
+  const anterior = sumarPorCat(movimientosDelMes(gastos, prev.getFullYear(), prev.getMonth()));
+  return [...new Set([...Object.keys(actual), ...Object.keys(anterior)])]
+    .map(cat => ({ cat, actual: round2(actual[cat] || 0), anterior: round2(anterior[cat] || 0) }))
+    .map(r => ({ ...r, delta: round2(r.actual - r.anterior) }))
+    .filter(r => r.actual || r.anterior)
+    .sort((a, b) => b.actual - a.actual || b.anterior - a.anterior);
+}
+
+// Clean axis: the smallest 1/2/2.5/5 step that covers the value in at most 4 intervals.
+export function escalaY(valor) {
+  const v = valor > 0 ? valor : 1000;
+  const mag = 10 ** Math.floor(Math.log10(v / 4));
+  let step = 10 * mag;
+  for (const f of [1, 2, 2.5, 5]) if (Math.ceil(v / (f * mag)) <= 4) { step = f * mag; break; }
+  const n = Math.ceil(v / step);
+  return { max: n * step, ticks: Array.from({ length: n + 1 }, (_, i) => i * step) };
+}
+
 // A leading apostrophe stops Excel from running text that starts like a formula.
 const csvCell = v => {
   if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;

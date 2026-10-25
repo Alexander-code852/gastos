@@ -22,6 +22,14 @@ Que el usuario (una persona, iPhone, pesos argentinos) sepa **antes de pasarse**
 ### Navegación
 La pantalla única ya es larga, así que se agrega una **barra de pestañas abajo**, como en las apps de iPhone: **Gastos** (lo actual), **Presupuestos**, **Fijos** y **Copia** (copia de seguridad y Excel).
 
+### Gráficos mes a mes (agregado 2026-10-25)
+- Nueva pestaña **Meses**, entre Presupuestos y Fijos. El rango termina en el mes elegido arriba y se puede ver **6 o 12 meses**.
+- Arriba, dos números: **promedio por mes** y **mes más alto** del rango.
+- **Columnas apiladas** por mes: gastos hormiga y resto, con una línea para el presupuesto total si existe. Las cuotas cuentan en el mes en que se pagan, igual que en el resto de la app.
+- Tocar o enfocar una columna muestra el mes, el total, lo hormiga y el resto. Los mismos datos se pueden ver como tabla.
+- Una **tabla por categoría** con este mes, el anterior y la diferencia (con flecha y signo, no solo color).
+- Colores validados con el script de la skill dataviz: claro `#e0621f` / `#13a07a`, oscuro `#e2702f` / `#24a87c`.
+
 ## Supuestos
 1. El presupuesto es el mismo todos los meses; no hay presupuestos distintos por mes.
 2. El monto de un fijo es fijo; si un servicio vino distinto, se edita el gasto de ese mes.
