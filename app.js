@@ -720,6 +720,13 @@ function drawChart(serie) {
       const top = yOf(s.total);
       if (bottom - top > 0.5) g.append(svg("path", { d: columnPath(x, bw, top, bottom, true), class: "m-resto" }));
     }
+    if (!s.total) {
+      // Faint mark so an empty month does not read as a month at $0; two lines only where the band fits them.
+      const nd = svg("text", { x: cx, y: base - 6, "text-anchor": "middle", class: "axis nd" });
+      if (band >= 34) nd.append(...[["sin", base - 18], ["datos", base - 6]].map(([t, y]) => { const ts = svg("tspan", { x: cx, y }); ts.textContent = t; return ts; }));
+      else nd.textContent = "–";
+      g.append(nd);
+    }
     const actual = i === serie.length - 1;
     const xl = svg("text", { x: cx, y: H - 7, "text-anchor": "middle", class: "axis" + (actual ? " cur" : "") });
     xl.textContent = mesCorto(s.y, s.m);
@@ -731,7 +738,7 @@ function drawChart(serie) {
     }
     // The whole band is the hit target, much bigger than the column itself.
     const hit = svg("rect", { x: pad.l + band * i, y: 0, width: band, height: H, class: "hit", tabindex: "0",
-      "aria-label": `${monthFmt.format(new Date(s.y, s.m, 1))}: total ${fmt(s.total)}, hormiga ${fmt(s.hormiga)}` });
+      "aria-label": `${monthFmt.format(new Date(s.y, s.m, 1))}: ` + (s.total ? `total ${fmt(s.total)}, hormiga ${fmt(s.hormiga)}` : "sin datos") });
     hit.addEventListener("pointerenter", () => showTip(i));
     hit.addEventListener("pointerdown", () => showTip(i));
     hit.addEventListener("focus", () => showTip(i));
@@ -756,8 +763,10 @@ function drawChart(serie) {
       r.append(el("span", "key " + cls), el("span", null, label), el("strong", "num", fmt(v)));
       return r;
     };
-    tip.replaceChildren(el("div", "tip-h", monthFmt.format(new Date(c.s.y, c.s.m, 1))), el("strong", "tip-total", fmt(c.s.total)),
+    const mes = el("div", "tip-h", monthFmt.format(new Date(c.s.y, c.s.m, 1)));
+    if (c.s.total) tip.replaceChildren(mes, el("strong", "tip-total", fmt(c.s.total)),
       row("k-hormiga", "Hormiga", c.s.hormiga), row("k-resto", "Resto", c.resto));
+    else tip.replaceChildren(mes, el("span", "sub", "Sin datos"));
     tip.hidden = false;
     const w = tip.offsetWidth, h = tip.offsetHeight;
     tip.style.left = `${Math.min(Math.max(c.cx - w / 2, 0), W - w)}px`;
@@ -857,6 +866,10 @@ fillSelect($("fMedio"), MEDIOS);
 function renderFijos() {
   const activos = S.fijos.filter(f => f.activo);
   countTo($("fijosTotal"), activos.reduce((s, f) => s + f.monto, 0));
+  const pausados = S.fijos.filter(f => !f.activo);
+  $("fijosPausados").hidden = !pausados.length;
+  $("fijosPausados").textContent = (pausados.length === 1 ? "1 pausado" : `${pausados.length} pausados`)
+    + `: ${fmt(pausados.reduce((s, f) => s + f.monto, 0))} que no se suman`;
   const lista = [...S.fijos].sort((a, b) => (b.activo - a.activo) || a.dia - b.dia);
   $("fijosLista").replaceChildren(...(lista.length ? lista.map(f => {
     const row = el("div", "fijo" + (f.activo ? "" : " paused"));
