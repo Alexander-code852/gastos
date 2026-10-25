@@ -75,7 +75,7 @@ button { cursor: pointer; }
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   max-width: 520px; margin: 0 auto;
 }
-.top h1 { font-size: 1.4rem; font-weight: 800; }
+.top h1 { flex: 1; min-width: 0; text-align: center; font-size: 1.4rem; font-weight: 800; }
 .nav { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); font-size: 1.5rem; line-height: 1; box-shadow: var(--shadow); transition: transform .2s var(--spring), background .2s; }
 
 .banner { background: var(--ant-soft); border-radius: 16px; padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; }
@@ -205,6 +205,8 @@ form.editing { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-s
 .check input { width: 22px; height: 22px; accent-color: var(--ant); }
 .actions { display: flex; gap: 10px; }
 .actions.wrap-row { flex-wrap: wrap; }
+/* About 10rem each: side by side when they fit, one per row on small phones */
+.actions.wrap-row > * { flex: 1 1 10rem; justify-content: center; text-align: center; white-space: nowrap; }
 .primary { flex: 1; border: 0; border-radius: 16px; background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 1.05rem; padding: 15px; box-shadow: 0 8px 18px -10px var(--accent); transition: transform .2s var(--spring), filter .2s; }
 .secondary { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 12px 16px; font-weight: 600; transition: transform .2s var(--spring), background .2s; }
 .filebtn { position: relative; overflow: hidden; display: inline-flex; align-items: center; cursor: pointer; }
@@ -252,14 +254,14 @@ form.editing { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-s
 @media (prefers-color-scheme: dark) { .pill.cerca { color: var(--warn); } .pill.pasado { color: var(--danger); } }
 .hormiga .budget { flex-basis: 100%; }
 .budgets { display: grid; gap: 12px; }
-.bcard { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 14px 16px; box-shadow: var(--shadow); }
+.bcard { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 14px 16px; box-shadow: var(--shadow); }
 .bcard.main { border-color: var(--accent); }
 .bcard:nth-child(2) { border-color: var(--ant); }
 .bhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .bhead label { font-weight: 700; }
-.bmoney { display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 0 10px; }
+.bmoney { min-width: 0; display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 0 10px; }
 .bmoney span { color: var(--muted); }
-.bmoney input { width: 8.5em; border: 0; background: transparent; padding: 8px 0; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; outline: none; }
+.bmoney input { width: 8.5em; min-width: 0; border: 0; background: transparent; padding: 8px 0; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; outline: none; }
 .bmoney:focus-within { outline: 3px solid var(--accent); outline-offset: 1px; }
 
 /* Fixed expenses */
