@@ -175,6 +175,16 @@ html:has(.sheet[open]) { overflow: hidden; }
 .sheet .budget { margin-top: 0; }
 /* The new-expense form lives in a sheet, which already is the card */
 .sheet form, .sheet form.editing { background: none; border: 0; box-shadow: none; padding: 0 0 4px; }
+.edit-cats { justify-self: start; margin-top: -6px; }
+#catsLista { display: grid; }
+.cat-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.cat-row .link { min-width: 4.6em; text-align: right; }
+.cat-row.oculta .cat-name { color: var(--muted); text-decoration: line-through; }
+.cat-name { min-width: 0; width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 8px 12px; }
+.cat-name:focus { border-color: var(--accent); outline: none; }
+.check.small { font-size: .85rem; gap: 6px; color: var(--muted); }
+.check.small input { width: 20px; height: 20px; }
+#catForm { margin-top: 8px; }
 .form-err { margin: 0; color: var(--danger); font-weight: 600; font-size: .9rem; }
 
 .fab {
