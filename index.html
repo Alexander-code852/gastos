@@ -60,31 +60,6 @@
       <div class="rapidos-row" id="rapidosBtns"></div>
     </section>
 
-    <form id="form" novalidate>
-      <label for="monto" class="lbl" id="formTitle">Nuevo gasto</label>
-      <div class="monto-row"><span aria-hidden="true">$</span><input id="monto" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Monto en pesos"></div>
-      <div id="cats" class="chips" role="radiogroup" aria-label="Categoría"></div>
-      <div class="sublbl">Medio de pago</div>
-      <div id="medios" class="chips small" role="radiogroup" aria-label="Medio de pago"></div>
-      <div class="cuotas-row" id="cuotasRow" hidden>
-        <label for="cuotas">Cuotas</label>
-        <select id="cuotas">
-          <option value="1">1 pago</option><option value="3">3 cuotas</option><option value="6">6 cuotas</option>
-          <option value="9">9 cuotas</option><option value="12">12 cuotas</option><option value="18">18 cuotas</option>
-          <option value="24">24 cuotas</option>
-        </select>
-        <span class="sub" id="cuotaInfo"></span>
-      </div>
-      <div class="row2">
-        <input id="nota" placeholder="Nota (opcional)" maxlength="80" aria-label="Nota">
-        <input id="fecha" type="date" aria-label="Fecha">
-      </div>
-      <label class="check"><input type="checkbox" id="esHormiga"> Es un gasto hormiga</label>
-      <div class="actions">
-        <button class="primary" id="guardar" type="submit">Agregar gasto</button>
-        <button class="secondary" id="cancelar" type="button" hidden>Cancelar</button>
-      </div>
-    </form>
 
     <section class="card" aria-labelledby="ingH">
       <div class="card-h"><h2 id="ingH">Ingresos</h2><span class="num" id="ingMes"></span></div>
@@ -194,6 +169,45 @@
   <button type="button" data-go="copia"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Copia</button>
 </nav>
 
+<dialog id="nuevo" class="sheet" aria-labelledby="formTitle">
+  <div class="sheet-in">
+    <div class="sheet-h" id="nuevoHead">
+      <span class="grab" aria-hidden="true"></span>
+      <h2 id="formTitle">Nuevo gasto</h2>
+      <button class="x" id="nuevoClose" type="button" aria-label="Cerrar">×</button>
+    </div>
+    <div class="sheet-body">
+        <form id="form" novalidate>
+          <p class="form-err" id="formErr" role="alert" hidden>Escribí un monto mayor a cero, por ejemplo 1500 o 1.500,50.</p>
+          <div class="monto-row"><span aria-hidden="true">$</span><input id="monto" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Monto en pesos"></div>
+          <div id="cats" class="chips" role="radiogroup" aria-label="Categoría"></div>
+          <div class="sublbl">Medio de pago</div>
+          <div id="medios" class="chips small" role="radiogroup" aria-label="Medio de pago"></div>
+          <div class="cuotas-row" id="cuotasRow" hidden>
+            <label for="cuotas">Cuotas</label>
+            <select id="cuotas">
+              <option value="1">1 pago</option><option value="3">3 cuotas</option><option value="6">6 cuotas</option>
+              <option value="9">9 cuotas</option><option value="12">12 cuotas</option><option value="18">18 cuotas</option>
+              <option value="24">24 cuotas</option>
+            </select>
+            <span class="sub" id="cuotaInfo"></span>
+          </div>
+          <div class="row2">
+            <input id="nota" placeholder="Nota (opcional)" maxlength="80" aria-label="Nota">
+            <input id="fecha" type="date" aria-label="Fecha">
+          </div>
+          <label class="check"><input type="checkbox" id="esHormiga"> Es un gasto hormiga</label>
+          <div class="actions">
+            <button class="primary" id="guardar" type="submit">Agregar gasto</button>
+            <button class="secondary" id="cancelar" type="button" hidden>Cancelar</button>
+          </div>
+        </form>
+    </div>
+  </div>
+</dialog>
+
+<button class="fab" id="fab" type="button" aria-label="Nuevo gasto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+
 <dialog id="sheet" class="sheet" aria-labelledby="sheetTitle">
   <div class="sheet-in">
     <div class="sheet-h" id="sheetHead">
@@ -210,7 +224,7 @@
   </div>
 </dialog>
 
-<div id="toast" role="status" aria-live="polite" hidden><span id="toastTxt"></span><button id="undo" type="button" hidden>Deshacer</button></div>
+<div id="toast" popover="manual" role="status" aria-live="polite" hidden><span id="toastTxt"></span><button id="undo" type="button" hidden>Deshacer</button></div>
 <script type="module" src="app.js"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@ import { CATS, CAT, MEDIOS, MEDIO, parseMonto, parteCuota, movimientosDelMes, re
   serieMensual, compararCategorias, escalaY, frecuentes, buscar, leerIPC, aPesosDe, repetirIngresos } from "./logic.js";
 
 const KEYS = { gastos: "gastos.v1", presupuestos: "gastos.presupuestos", fijos: "gastos.fijos", ingresos: "gastos.ingresos" };
-const BACKUP_KEY = "gastos.ultimaCopia", TAB_KEY = "gastos.tab", RANGO_KEY = "gastos.rango", AJUSTE_KEY = "gastos.ajuste", IPC_KEY = "gastos.ipc";
+const INSTALAR_KEY = "gastos.instalarCerrado", BACKUP_KEY = "gastos.ultimaCopia", TAB_KEY = "gastos.tab", RANGO_KEY = "gastos.rango", AJUSTE_KEY = "gastos.ajuste", IPC_KEY = "gastos.ipc";
 const IPC_URL = "https://api.argentinadatos.com/v1/finanzas/indices/inflacion";
 const TABS = ["gastos", "presupuestos", "meses", "fijos", "copia"];
 const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 });
@@ -81,6 +81,8 @@ function say(text, kind = "", undo = null) {
   $("undo").hidden = !undo;
   undoState = undo;
   $("toast").hidden = false;
+  // In the top layer the toast shows above an open sheet; re-showing puts it above the newest one.
+  try { $("toast").hidePopover(); $("toast").showPopover(); } catch {}
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { $("toast").hidden = true; undoState = null; }, kind ? 7000 : 4500);
 }
@@ -99,6 +101,7 @@ function showTab(name) {
   try { localStorage.setItem(TAB_KEY, name); } catch {}
   for (const s of document.querySelectorAll(".tab")) s.hidden = s.dataset.tab !== name;
   for (const b of document.querySelectorAll(".tabbar button")) b.setAttribute("aria-current", String(b.dataset.go === name));
+  $("fab").hidden = name !== "gastos";
   render();
   window.scrollTo(0, 0);
 }
@@ -188,13 +191,15 @@ function renderGastos(movs, r) {
     h.append(el("span", null, dayFmt.format(new Date(f + "T12:00"))), el("span", "num", fmt(items.reduce((s, g) => s + g.monto, 0))));
     box.append(h, ...items.map(g => itemRow(g)));
     return box;
-  }) : [el("p", "empty", `No hay gastos en ${$("mes").textContent.toLowerCase()}. Cargá el primero arriba.`)]));
+  }) : [el("p", "empty", `No hay gastos en ${$("mes").textContent.toLowerCase()}. Tocá + para cargar el primero.`)]));
   renderBusqueda();
   renderRapidos();
 
   const last = Number(localStorage.getItem(BACKUP_KEY)) || 0;
   const diasSinCopia = (Date.now() - last) / 864e5;
   $("banner").hidden = !S.gastos.length || diasSinCopia < 14;
+  // One notice at a time. The backup one goes first: an app installed on iPhone starts with no data.
+  $("instalar").hidden = !$("banner").hidden || instalarOculto();
   $("bannerTxt").textContent = last ? `Hace ${Math.floor(diasSinCopia)} días que no guardás una copia.` : "Todavía no guardaste una copia de tus datos.";
 }
 
@@ -414,20 +419,30 @@ function abrirCategoria(id) {
   $("sheetBody").scrollTop = 0;
 }
 
-function cerrarSheet() {
-  const d = $("sheet");
+function cerrar(d) {
   if (!d.open || d.classList.contains("closing")) return;
   if (calm.matches) { d.close(); return; }
   d.classList.add("closing");
   d.addEventListener("animationend", () => { d.classList.remove("closing"); d.close(); }, { once: true });
 }
-$("sheet").addEventListener("close", () => { sheetCat = null; $("sheet").style.transform = ""; });
-$("sheet").addEventListener("cancel", e => { e.preventDefault(); cerrarSheet(); });
-// The panel fills the dialog, so a click whose target is the dialog itself landed on the backdrop.
-$("sheet").addEventListener("click", e => { if (e.target === $("sheet")) cerrarSheet(); });
-$("sheetClose").onclick = cerrarSheet;
-{
-  const head = $("sheetHead"), d = $("sheet"), wide = matchMedia("(min-width: 960px)");
+$("sheet").addEventListener("close", () => { sheetCat = null; });
+// Closing the new-expense sheet without saving drops an edit in progress; a new one keeps its draft.
+$("nuevo").addEventListener("close", () => { if (editingId) resetForm(); });
+
+function abrirNuevo() {
+  $("formErr").hidden = true;
+  $("nuevo").showModal();
+  $("monto").focus();
+}
+$("fab").onclick = () => { if (editingId) resetForm(); abrirNuevo(); };
+
+const wide = matchMedia("(min-width: 960px)");
+for (const [d, head, x] of [[$("sheet"), $("sheetHead"), $("sheetClose")], [$("nuevo"), $("nuevoHead"), $("nuevoClose")]]) {
+  d.addEventListener("close", () => { d.style.transform = ""; });
+  d.addEventListener("cancel", e => { e.preventDefault(); cerrar(d); });
+  // The panel fills the dialog, so a click whose target is the dialog itself landed on the backdrop.
+  d.addEventListener("click", e => { if (e.target === d) cerrar(d); });
+  x.onclick = () => cerrar(d);
   let y0 = null;
   head.addEventListener("pointerdown", e => {
     // On wide screens the sheet is a centered dialog, so dragging it down makes no sense.
@@ -442,7 +457,7 @@ $("sheetClose").onclick = cerrarSheet;
     const dy = e.clientY - y0;
     y0 = null;
     d.classList.remove("drag");
-    if (dy > 90) cerrarSheet(); else d.style.transform = "";
+    if (dy > 90) cerrar(d); else d.style.transform = "";
   };
   head.addEventListener("pointerup", fin);
   head.addEventListener("pointercancel", fin);
@@ -513,7 +528,7 @@ function startEdit(id) {
   $("guardar").textContent = "Guardar cambios";
   $("cancelar").hidden = false;
   renderForm();
-  $("form").scrollIntoView({ behavior: "smooth", block: "start" });
+  abrirNuevo();
 }
 
 function borrar(id) {
@@ -540,14 +555,14 @@ function avisos(antes, despues, gCat) {
 $("form").addEventListener("submit", ev => {
   ev.preventDefault();
   const monto = parseMonto($("monto").value);
-  if (isNaN(monto)) { say("Escribí un monto mayor a cero, por ejemplo 1500 o 1.500,50.", "err"); $("monto").focus(); return; }
+  if (isNaN(monto)) { $("formErr").hidden = false; $("monto").focus(); return; }
   const fecha = $("fecha").value || today();
   const data = { monto, cat, medio, cuotas: medio === "credito" ? Number($("cuotas").value) : 1,
     nota: $("nota").value.trim(), fecha, hormiga: $("esHormiga").checked };
   const wasEditing = editingId;
   if (!guardarGasto(data, wasEditing)) return;
   resetForm();
-  if (!wasEditing) $("monto").focus();
+  cerrar($("nuevo"));
 });
 
 // Saves a new or edited expense and reports it with the budget warnings of the month it lands in.
@@ -566,8 +581,8 @@ function guardarGasto(data, wasEditing = null, undo = null) {
   return true;
 }
 
-$("cancelar").onclick = resetForm;
-$("monto").addEventListener("input", renderForm);
+$("cancelar").onclick = () => cerrar($("nuevo"));
+$("monto").addEventListener("input", () => { $("formErr").hidden = true; renderForm(); });
 $("cuotas").addEventListener("change", renderForm);
 $("prev").onclick = () => { view = view.m ? { y: view.y, m: view.m - 1 } : { y: view.y - 1, m: 11 }; render(); };
 $("next").onclick = () => { view = view.m < 11 ? { y: view.y, m: view.m + 1 } : { y: view.y + 1, m: 0 }; render(); };
@@ -1031,15 +1046,22 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
 /* ---------- Instalar ---------- */
 // Chrome and Android hand over a prompt; Safari on iPhone never does, so there the button explains the Share menu.
 let installPrompt = null;
-const INSTALAR_KEY = "gastos.instalarCerrado";
-$("instalar").hidden = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true || !!localStorage.getItem(INSTALAR_KEY);
-$("instalarX").onclick = () => { $("instalar").hidden = true; localStorage.setItem(INSTALAR_KEY, "1"); };
+function instalarOculto() {
+  try { if (localStorage.getItem(INSTALAR_KEY)) return true; } catch {}
+  return matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+}
+function noMostrarInstalar() {
+  $("instalar").hidden = true;
+  try { localStorage.setItem(INSTALAR_KEY, "1"); } catch {}
+}
+$("instalarX").onclick = noMostrarInstalar;
 addEventListener("beforeinstallprompt", e => { e.preventDefault(); installPrompt = e; });
-addEventListener("appinstalled", () => { $("instalar").hidden = true; });
+addEventListener("appinstalled", noMostrarInstalar);
 $("instalarBtn").onclick = async () => {
-  if (!installPrompt) return say("En Safari tocá Compartir (el cuadrado con la flecha) y después \"Agregar a inicio\".", "info");
+  if (!installPrompt) return say("En Safari tocá Compartir (el cuadrado con la flecha) y después \"Agregar a inicio\"."
+    + (S.gastos.length ? " La app instalada empieza vacía: restaurá ahí tu copia." : ""), "info");
   installPrompt.prompt();
   const { outcome } = await installPrompt.userChoice;
   installPrompt = null;
-  if (outcome === "accepted") $("instalar").hidden = true;
+  if (outcome === "accepted") noMostrarInstalar();
 };

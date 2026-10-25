@@ -52,6 +52,8 @@ body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 var(
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 4px calc(104px + env(safe-area-inset-bottom, 0px));
 }
+/* Room under the last expense so the + button never covers it */
+#tab-gastos { padding-bottom: 72px; }
 .tab { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 /* Gastos columns only exist on wide screens; on phones their children sit straight in the tab. */
 .gcol { display: contents; }
@@ -171,6 +173,18 @@ html:has(.sheet[open]) { overflow: hidden; }
 .sheet-total { display: grid; gap: 2px; }
 .sheet-total .big { font-family: var(--display); font-weight: 800; font-size: 2.3rem; letter-spacing: -.03em; line-height: 1.1; }
 .sheet .budget { margin-top: 0; }
+/* The new-expense form lives in a sheet, which already is the card */
+.sheet form, .sheet form.editing { background: none; border: 0; box-shadow: none; padding: 0 0 4px; }
+.form-err { margin: 0; color: var(--danger); font-weight: 600; font-size: .9rem; }
+
+.fab {
+  position: fixed; z-index: 7; width: 60px; height: 60px; border-radius: 20px; border: 0;
+  right: max(16px, env(safe-area-inset-right, 0px), calc(50% - 244px));
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  background: var(--accent); color: var(--accent-ink); box-shadow: 0 10px 24px -8px rgba(13, 60, 44, .6);
+  display: grid; place-items: center; transition: transform .2s var(--spring);
+}
+.fab svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
 .mini { display: grid; gap: 6px; padding: 14px 12px 10px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface-2); }
 .mplot { position: relative; height: 120px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; align-items: end; border-bottom: 1px solid var(--grid); }
 .mcol { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; min-width: 0; }
@@ -201,6 +215,9 @@ form.editing { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-s
 .row2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .row2 input { min-width: 0; width: 100%; min-height: 46px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 10px 12px; transition: border-color .2s; }
 .row2 input:focus { border-color: var(--accent); outline: none; }
+/* iPhone draws date fields centered and wider than their box; make them sit like the other inputs */
+input[type="date"] { -webkit-appearance: none; appearance: none; display: block; text-align: left; }
+input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
 .check { display: flex; align-items: center; gap: 10px; font-size: .95rem; }
 .check input { width: 22px; height: 22px; accent-color: var(--ant); }
 .actions { display: flex; gap: 10px; }
@@ -344,7 +361,7 @@ td.num { font-variant-numeric: tabular-nums; }
 .tabbar button[aria-current="true"] svg { background: var(--accent-soft); }
 
 #toast {
-  position: fixed; left: 50%; transform: translateX(-50%); z-index: 10;
+  position: fixed; inset: auto; margin: 0; border: 0; overflow: visible; left: 50%; transform: translateX(-50%); z-index: 10;
   bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   background: var(--ink); color: var(--bg); border-radius: 16px; padding: 11px 12px 11px 16px;
   display: flex; gap: 14px; align-items: center; box-shadow: 0 12px 30px rgba(0,0,0,.28);
@@ -365,6 +382,7 @@ td.num { font-variant-numeric: tabular-nums; }
 @media (min-width: 960px) {
   .wrap, .top { max-width: 1040px; }
   #tab-gastos { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .fab { right: calc(50% - 504px); }
   .gcol { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; min-width: 0; }
   #tab-presupuestos, #tab-fijos, #tab-copia { width: 100%; max-width: 640px; margin-inline: auto; }
   /* The category sheet becomes a centered dialog, with no drag handle */
@@ -417,7 +435,7 @@ td.num { font-variant-numeric: tabular-nums; }
   #mes.swap { animation: swap .3s var(--ease); }
   .tabbar button[aria-current="true"] svg { animation: pop .4s var(--spring); }
   #resultados:not([hidden]) { animation: fade .25s ease; }
-  .rapido:active, .chip:active, .nav:active, .primary:active, .secondary:active, .banner button:active { transform: scale(.95); }
+  .fab:active, .rapido:active, .chip:active, .nav:active, .primary:active, .secondary:active, .banner button:active { transform: scale(.95); }
   .item .edit:active { opacity: .6; }
 }
 @media (hover: hover) {
