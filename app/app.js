@@ -369,8 +369,15 @@ function resetIngresoForm() {
   $("ingForm").classList.remove("editing");
   $("iFecha").value = fechaIngresoDefault();
   $("iGuardar").textContent = "Agregar ingreso";
-  $("iCancelar").hidden = true;
+  $("ingForm").hidden = true;
+  $("iAbrir").hidden = false;
 }
+
+function abrirIngreso() {
+  $("ingForm").hidden = false;
+  $("iAbrir").hidden = true;
+}
+$("iAbrir").onclick = () => { abrirIngreso(); $("iConcepto").focus(); };
 
 function editarIngreso(id) {
   const x = S.ingresos.find(i => i.id === id);
@@ -381,7 +388,7 @@ function editarIngreso(id) {
   $("iFecha").value = x.fecha;
   $("ingForm").classList.add("editing");
   $("iGuardar").textContent = "Guardar cambios";
-  $("iCancelar").hidden = false;
+  abrirIngreso();
   $("iMonto").focus();
 }
 
@@ -609,17 +616,22 @@ function buildBudgetCards() {
     head.append(lab, field);
     const status = el("div", "budget");
     card.append(head, status);
-    budgetCards.set(key, { input, status });
+    budgetCards.set(key, { card, input, status });
     return card;
   }));
 }
+
+// Categories with a limit, plus the ones opened this session: a card never vanishes while you edit it.
+const budgetAbiertas = new Set(["total", "hormiga"]);
 
 function renderPresupuestos(r) {
   if (!budgetCards.size) buildBudgetCards();
   const p = S.presupuestos, porCat = Object.fromEntries(r.porCat);
   for (const [key] of BUDGET_ROWS) {
-    const { input, status } = budgetCards.get(key);
+    const { card, input, status } = budgetCards.get(key);
     const limite = key === "total" || key === "hormiga" ? p[key] : p.cat[key];
+    if (limite) budgetAbiertas.add(key);
+    card.hidden = !budgetAbiertas.has(key);
     const gastado = key === "total" ? r.total : key === "hormiga" ? r.hormiga : porCat[key] ?? 0;
     if (document.activeElement !== input) input.value = limite ? inputFmt(limite) : "";
     budgetBlock(status, estadoPresupuesto(gastado, limite), key === "total");
@@ -629,7 +641,28 @@ function renderPresupuestos(r) {
       status.replaceChildren(el("span", "sub", gastado ? `Gastaste ${fmt(gastado)} este mes` : "Sin gastos este mes"));
     }
   }
+  $("bAgregar").hidden = budgetAbiertas.size === BUDGET_ROWS.length;
 }
+
+// The picker is rebuilt only when it opens, so a render never swallows a tap on one of its chips.
+$("bAgregar").onclick = () => {
+  const open = $("bElegir").hidden;
+  $("bElegir").hidden = !open;
+  $("bAgregar").setAttribute("aria-expanded", String(open));
+  if (!open) return;
+  $("bElegir").replaceChildren(...BUDGET_ROWS.filter(([key]) => !budgetAbiertas.has(key)).map(([key, label]) => {
+    const b = el("button", "chip", label);
+    b.type = "button";
+    b.onclick = () => {
+      budgetAbiertas.add(key);
+      $("bElegir").hidden = true;
+      $("bAgregar").setAttribute("aria-expanded", "false");
+      render();
+      budgetCards.get(key).input.focus();
+    };
+    return b;
+  }));
+};
 
 function guardarLimite(key, raw, label) {
   const v = raw.trim() === "" ? null : parseMonto(raw);

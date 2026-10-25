@@ -65,7 +65,8 @@
       <div class="card-h"><h2 id="ingH">Ingresos</h2><span class="num" id="ingMes"></span></div>
       <div id="ingLista"></div>
       <button class="secondary repetir" id="repetir" type="button" hidden></button>
-      <form id="ingForm" class="ing-form" novalidate>
+      <button class="secondary repetir" id="iAbrir" type="button">+ Agregar ingreso</button>
+      <form id="ingForm" class="ing-form" novalidate hidden>
         <input id="iConcepto" maxlength="40" placeholder="Concepto: sueldo, changa, venta…" aria-label="Concepto del ingreso" autocomplete="off">
         <div class="row2">
           <input id="iMonto" inputmode="decimal" placeholder="Monto" aria-label="Monto del ingreso" autocomplete="off">
@@ -73,7 +74,7 @@
         </div>
         <div class="actions">
           <button class="secondary grow" id="iGuardar" type="submit">Agregar ingreso</button>
-          <button class="secondary" id="iCancelar" type="button" hidden>Cancelar</button>
+          <button class="secondary" id="iCancelar" type="button">Cancelar</button>
         </div>
       </form>
     </section>
@@ -99,6 +100,8 @@
   <section class="tab" id="tab-presupuestos" data-tab="presupuestos" hidden>
     <p class="sub">Poné cuánto querés gastar como máximo por mes. Se repite todos los meses. Dejalo vacío para no tener límite.</p>
     <div class="budgets" id="budgets"></div>
+    <button class="secondary repetir" id="bAgregar" type="button" aria-expanded="false" aria-controls="bElegir">+ Poner límite a otra categoría</button>
+    <div class="chips" id="bElegir" role="group" aria-label="Elegí la categoría" hidden></div>
   </section>
 
   <!-- Meses -->

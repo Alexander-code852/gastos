@@ -141,7 +141,7 @@ button { cursor: pointer; }
 .ing-monto { color: var(--accent); font-weight: 700; }
 .repetir { width: 100%; margin: 4px 0 10px; border-style: dashed; color: var(--accent); font-weight: 700; }
 form.ing-form { background: none; border: 0; box-shadow: none; padding: 12px 0 0; gap: 10px; border-top: 1px solid var(--line); border-radius: 0; }
-#ingLista:empty + .repetir[hidden] + form.ing-form { border-top: 0; padding-top: 0; }
+#ingLista:empty + .repetir[hidden] + #iAbrir + form.ing-form { border-top: 0; padding-top: 0; }
 form.ing-form.editing { box-shadow: none; }
 .ing-form > input { min-width: 0; width: 100%; min-height: 46px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 10px 12px; }
 .ing-form input:focus { border-color: var(--accent); outline: none; }
@@ -271,6 +271,7 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
 @media (prefers-color-scheme: dark) { .pill.cerca { color: var(--warn); } .pill.pasado { color: var(--danger); } }
 .hormiga .budget { flex-basis: 100%; }
 .budgets { display: grid; gap: 12px; }
+#bAgregar { margin: 0; }
 .bcard { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 14px 16px; box-shadow: var(--shadow); }
 .bcard.main { border-color: var(--accent); }
 .bcard:nth-child(2) { border-color: var(--ant); }
