@@ -19,7 +19,7 @@
 <body>
 <header class="top">
   <button class="nav" id="prev" type="button" aria-label="Mes anterior">‹</button>
-  <h1 id="mes">Este mes</h1>
+  <h1 id="mes" tabindex="-1">Este mes</h1>
   <button class="nav" id="next" type="button" aria-label="Mes siguiente">›</button>
 </header>
 
@@ -37,12 +37,20 @@
       <button type="button" id="bannerBtn">Guardar copia</button>
     </div>
 
+    <section class="cierre" id="cierre" aria-labelledby="cierreH" hidden>
+      <div class="cierre-h"><h2 id="cierreH"></h2><button class="x" id="cierreX" type="button" aria-label="Cerrar el resumen">×</button></div>
+      <span class="big num" id="cierreTotal"></span>
+      <ul class="cierre-datos" id="cierreDatos"></ul>
+      <button class="link" id="cierreVer" type="button">Ver en Meses ›</button>
+    </section>
+
     <section class="resumen" aria-live="polite">
       <div class="total">
         <span class="lbl">Gastaste en el mes</span>
         <span class="big" id="total">$ 0</span>
         <div class="budget" id="budgetTotal" hidden></div>
       </div>
+      <div class="ritmo" id="ritmo" aria-live="off" hidden></div>
       <div class="hormiga">
         <span class="lbl">Gastos hormiga</span>
         <span class="val" id="hTotal">$ 0</span><span class="sub" id="hPct"></span>
@@ -186,8 +194,12 @@
           <button type="button" role="radio" data-modo="gasto" aria-checked="true">Gasto</button>
           <button type="button" role="radio" data-modo="ingreso" aria-checked="false">Ingreso</button>
         </div>
-        <div class="monto-row"><span aria-hidden="true">$</span><input id="monto" inputmode="none" autocomplete="off" placeholder="0" aria-label="Monto en pesos" aria-describedby="montoCalc"></div>
+        <div class="monto-row"><button type="button" class="moneda" id="moneda" aria-label="Moneda: pesos. Tocá para cargar en dólares">$</button><input id="monto" inputmode="none" autocomplete="off" placeholder="0" aria-label="Monto en pesos" aria-describedby="montoCalc"></div>
         <p class="monto-calc" id="montoCalc" aria-live="polite"></p>
+        <div class="usd-row" id="usdRow" hidden>
+          <div class="chips small one-row" id="casas" role="radiogroup" aria-label="Cotización del dólar"></div>
+          <label class="cotiz"><span>1 US$ =</span><span aria-hidden="true">$</span><input id="cotiz" inputmode="decimal" autocomplete="off" aria-label="Cotización en pesos por dólar"></label>
+        </div>
         <p class="form-err" id="formErr" role="alert" hidden>Escribí un monto mayor a cero, por ejemplo 1500 o 1.500,50.</p>
       </div>
       <div class="nuevo-mid">

@@ -216,7 +216,9 @@ html:has(#nuevo[open]) .fab svg { transform: rotate(135deg); }
 .nuevo-form .monto-row { justify-content: center; border: 0; gap: 4px; }
 .nuevo-form #monto { flex: 0 1 auto; field-sizing: content; min-width: 1.2ch; max-width: 100%; text-align: center; font-size: clamp(2.1rem, 11vw, 2.9rem); padding: 0; caret-color: var(--accent); }
 @supports not (field-sizing: content) { .nuevo-form #monto { flex: 1; text-align: left; } }
-.nuevo-form.ingreso #monto, .nuevo-form.ingreso .monto-row span { color: var(--accent); }
+.nuevo-form.ingreso #monto, .nuevo-form.ingreso .moneda { color: var(--accent); }
+.moneda:disabled { cursor: default; }
+.moneda:disabled::after { content: none; }
 .monto-calc { margin: -6px 0 0; text-align: center; color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; min-height: 1.4em; }
 .nuevo-form .form-err { text-align: center; }
 .nuevo-mid { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; align-content: start; gap: 16px; padding: 12px 16px 14px; border-block: 1px solid var(--line); }
@@ -225,7 +227,7 @@ html:has(#nuevo[open]) .fab svg { transform: rotate(135deg); }
 .mid-h .link { min-height: 32px; padding: 4px 0; }
 .nuevo-mid .sublbl { margin: 0; }
 /* One sideways row, most used first: the panel stays short enough for an iPhone SE */
-.cat-row, .one-row { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; }
+.cat-row, .chips.one-row { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; }
 .cat-row::-webkit-scrollbar, .one-row::-webkit-scrollbar { display: none; }
 .cat-row .cat-op { flex: 0 0 76px; scroll-snap-align: start; }
 .one-row .chip { flex: none; white-space: nowrap; }
@@ -558,3 +560,30 @@ td.num { font-variant-numeric: tabular-nums; }
   .cat-row .cat-op { padding-block: 5px 3px; }
   .nuevo-foot { padding-top: 8px; gap: 8px; }
 }
+
+/* Pace of the month, inside the hero: fill = day-to-day spending used, tick = how much of the month is gone */
+.ritmo { display: grid; gap: 6px; }
+.ritmo .track { position: relative; height: 8px; border-radius: 4px; background: var(--line); overflow: visible; }
+.ritmo .fill { height: 100%; border-radius: 4px; background: var(--ok); }
+.ritmo.is-rapido .fill { background: var(--warn-bar); }
+.hoy-tick { position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--ink); box-shadow: 0 0 0 2px var(--hero); }
+
+/* Closing summary of last month, first week only */
+.cierre { display: grid; gap: 6px; background: var(--surface); border: 1px solid var(--accent); border-radius: 22px; padding: 14px 16px; box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow); }
+.cierre-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cierre-h h2 { margin: 0; font-size: 1.05rem; }
+.cierre .x { width: 34px; height: 34px; font-size: 1.3rem; }
+.cierre .big { font-family: var(--display); font-weight: 800; font-size: 2rem; letter-spacing: -.03em; line-height: 1.1; }
+.cierre-datos { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; color: var(--muted); font-size: .92rem; }
+.cierre .link { justify-self: start; }
+
+/* Currency switch in the + sheet: the $ is a button that turns into US$ */
+.moneda { border: 0; background: none; padding: 2px 6px; border-radius: 10px; font-family: var(--display); font-size: 1.9rem; color: var(--muted); line-height: 1; }
+.moneda::after { content: "⇄"; font-size: .7rem; vertical-align: super; margin-left: 2px; color: var(--accent); }
+.nuevo-form.usd .moneda { color: var(--accent); background: var(--accent-soft); }
+.usd-row { display: grid; gap: 8px; }
+.usd-row .one-row { margin-inline: -16px; }
+.cotiz { display: flex; align-items: center; gap: 6px; justify-content: center; font-size: .9rem; color: var(--muted); }
+.cotiz input { width: 7.5em; min-height: 38px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); padding: 6px 10px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.cotiz input:focus { border-color: var(--accent); outline: none; }
+#nuevo:has(#cotiz:focus) .keypad { display: none; }
