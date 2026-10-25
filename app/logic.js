@@ -186,7 +186,11 @@ export function fijosPendientes(fijos, hoy = new Date()) {
   return { gastos, fijos: next };
 }
 
-const csvCell = v => /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+// A leading apostrophe stops Excel from running text that starts like a formula.
+const csvCell = v => {
+  if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;
+  return /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+};
 
 // Semicolon-separated with decimal comma, which is what Excel in Spanish expects.
 export function aCSV(gastos) {

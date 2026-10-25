@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Gastos Hormiga</title>
-<meta name="description" content="Registro de gastos y gastos hormiga">
+<meta name="description" content="Registro de gastos, gastos hormiga, presupuestos y gastos fijos">
 <meta name="theme-color" content="#f2f4ef" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#121814" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -24,60 +24,106 @@
 </header>
 
 <main class="wrap">
-  <div class="banner" id="banner" hidden>
-    <span id="bannerTxt"></span>
-    <button type="button" id="bannerBtn">Guardar copia</button>
-  </div>
+  <!-- Gastos -->
+  <section class="tab" id="tab-gastos" data-tab="gastos">
+    <div class="banner" id="banner" hidden>
+      <span id="bannerTxt"></span>
+      <button type="button" id="bannerBtn">Guardar copia</button>
+    </div>
 
-  <section class="resumen" aria-live="polite">
-    <div class="total"><span class="lbl">Gastaste en el mes</span><span class="big" id="total">$ 0</span></div>
-    <div class="hormiga"><span class="lbl">Gastos hormiga</span><span class="val" id="hTotal">$ 0</span><span class="sub" id="hPct"></span></div>
-    <p class="proy" id="proy"></p>
+    <section class="resumen" aria-live="polite">
+      <div class="total">
+        <span class="lbl">Gastaste en el mes</span>
+        <span class="big" id="total">$ 0</span>
+        <div class="budget" id="budgetTotal" hidden></div>
+      </div>
+      <div class="hormiga">
+        <span class="lbl">Gastos hormiga</span>
+        <span class="val" id="hTotal">$ 0</span><span class="sub" id="hPct"></span>
+        <div class="budget" id="budgetHormiga" hidden></div>
+      </div>
+      <p class="proy" id="proy"></p>
+    </section>
+
+    <form id="form" novalidate>
+      <label for="monto" class="lbl" id="formTitle">Nuevo gasto</label>
+      <div class="monto-row"><span aria-hidden="true">$</span><input id="monto" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Monto en pesos"></div>
+      <div id="cats" class="chips" role="radiogroup" aria-label="Categoría"></div>
+      <div class="sublbl">Medio de pago</div>
+      <div id="medios" class="chips small" role="radiogroup" aria-label="Medio de pago"></div>
+      <div class="cuotas-row" id="cuotasRow" hidden>
+        <label for="cuotas">Cuotas</label>
+        <select id="cuotas">
+          <option value="1">1 pago</option><option value="3">3 cuotas</option><option value="6">6 cuotas</option>
+          <option value="9">9 cuotas</option><option value="12">12 cuotas</option><option value="18">18 cuotas</option>
+          <option value="24">24 cuotas</option>
+        </select>
+        <span class="sub" id="cuotaInfo"></span>
+      </div>
+      <div class="row2">
+        <input id="nota" placeholder="Nota (opcional)" maxlength="80" aria-label="Nota">
+        <input id="fecha" type="date" aria-label="Fecha">
+      </div>
+      <label class="check"><input type="checkbox" id="esHormiga"> Es un gasto hormiga</label>
+      <div class="actions">
+        <button class="primary" id="guardar" type="submit">Agregar gasto</button>
+        <button class="secondary" id="cancelar" type="button" hidden>Cancelar</button>
+      </div>
+    </form>
+
+    <section><h2>Por categoría</h2><div class="bars" id="porCat"></div></section>
+    <section><h2>Por medio de pago</h2><div class="bars" id="porMedio"></div></section>
+    <section><h2>Movimientos</h2><div id="lista"></div></section>
   </section>
 
-  <form id="form" novalidate>
-    <label for="monto" class="lbl" id="formTitle">Nuevo gasto</label>
-    <div class="monto-row"><span aria-hidden="true">$</span><input id="monto" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Monto en pesos"></div>
-    <div id="cats" class="chips" role="radiogroup" aria-label="Categoría"></div>
-    <div class="sublbl">Medio de pago</div>
-    <div id="medios" class="chips small" role="radiogroup" aria-label="Medio de pago"></div>
-    <div class="cuotas-row" id="cuotasRow" hidden>
-      <label for="cuotas">Cuotas</label>
-      <select id="cuotas">
-        <option value="1">1 pago</option><option value="3">3 cuotas</option><option value="6">6 cuotas</option>
-        <option value="9">9 cuotas</option><option value="12">12 cuotas</option><option value="18">18 cuotas</option>
-        <option value="24">24 cuotas</option>
-      </select>
-      <span class="sub" id="cuotaInfo"></span>
-    </div>
-    <div class="row2">
-      <input id="nota" placeholder="Nota (opcional)" maxlength="80" aria-label="Nota">
-      <input id="fecha" type="date" aria-label="Fecha">
-    </div>
-    <label class="check"><input type="checkbox" id="esHormiga"> Es un gasto hormiga</label>
-    <div class="actions">
-      <button class="primary" id="guardar" type="submit">Agregar gasto</button>
-      <button class="secondary" id="cancelar" type="button" hidden>Cancelar</button>
-    </div>
-    <p class="msg" id="msg" role="status"></p>
-  </form>
+  <!-- Presupuestos -->
+  <section class="tab" id="tab-presupuestos" data-tab="presupuestos" hidden>
+    <p class="sub">Poné cuánto querés gastar como máximo por mes. Se repite todos los meses. Dejalo vacío para no tener límite.</p>
+    <div class="budgets" id="budgets"></div>
+  </section>
 
-  <section><h2>Por categoría</h2><div class="bars" id="porCat"></div></section>
-  <section><h2>Por medio de pago</h2><div class="bars" id="porMedio"></div></section>
-  <section><h2>Movimientos</h2><div id="lista"></div></section>
+  <!-- Fijos -->
+  <section class="tab" id="tab-fijos" data-tab="fijos" hidden>
+    <div class="fijos-total"><span class="lbl">Tus gastos fijos por mes</span><span class="big" id="fijosTotal">$ 0</span></div>
+    <div id="fijosLista"></div>
 
-  <section class="backup">
-    <h2>Copia de seguridad</h2>
-    <p class="sub">Tus gastos se guardan solo en este teléfono. Guardá una copia en Archivos o iCloud de vez en cuando.</p>
+    <form id="fijoForm" novalidate>
+      <span class="lbl" id="fijoTitle">Nuevo gasto fijo</span>
+      <label class="field"><span>Nombre</span><input id="fNombre" maxlength="40" placeholder="Alquiler, Netflix, luz…" autocomplete="off"></label>
+      <label class="field"><span>Monto</span><input id="fMonto" inputmode="decimal" placeholder="0" autocomplete="off"></label>
+      <div class="field-row">
+        <label class="field"><span>Categoría</span><select id="fCat"></select></label>
+        <label class="field"><span>Medio de pago</span><select id="fMedio"></select></label>
+      </div>
+      <label class="field"><span>Se paga el día</span><input id="fDia" type="number" inputmode="numeric" min="1" max="31" placeholder="1 a 31"></label>
+      <label class="check" id="fEsteMesRow"><input type="checkbox" id="fEsteMes" checked> Cargarlo también este mes</label>
+      <div class="actions">
+        <button class="primary" id="fGuardar" type="submit">Agregar gasto fijo</button>
+        <button class="secondary" id="fCancelar" type="button" hidden>Cancelar</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Copia -->
+  <section class="tab backup" id="tab-copia" data-tab="copia" hidden>
+    <p class="sub">Tus datos se guardan solo en este teléfono. Guardá una copia en Archivos o iCloud de vez en cuando: incluye gastos, presupuestos y gastos fijos.</p>
+    <p class="sub" id="ultimaCopia"></p>
     <div class="actions wrap-row">
-      <button class="secondary" type="button" id="exportar">Guardar copia</button>
+      <button class="primary" type="button" id="exportar">Guardar copia</button>
       <label class="secondary filebtn">Restaurar copia<input type="file" id="importar" accept=".json,application/json"></label>
       <button class="secondary" type="button" id="csv">Exportar a Excel</button>
     </div>
   </section>
 </main>
 
-<div id="toast" hidden><span id="toastTxt"></span><button id="undo" type="button">Deshacer</button></div>
+<nav class="tabbar" aria-label="Secciones">
+  <button type="button" data-go="gastos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Gastos</button>
+  <button type="button" data-go="presupuestos"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4v8l6 4"/></svg>Presupuestos</button>
+  <button type="button" data-go="fijos"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Fijos</button>
+  <button type="button" data-go="copia"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Copia</button>
+</nav>
+
+<div id="toast" role="status" aria-live="polite" hidden><span id="toastTxt"></span><button id="undo" type="button" hidden>Deshacer</button></div>
 <script type="module" src="app.js"></script>
 </body>
 </html>

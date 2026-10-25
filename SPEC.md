@@ -65,15 +65,15 @@ export function fijosPendientes(fijos, hoy) { ... }
 - **Nunca:** borrar ni modificar gastos existentes al migrar; publicar con tests fallando.
 
 ## Criterios de éxito
-- [ ] Se puede definir, cambiar y quitar un presupuesto por categoría, uno hormiga y uno total.
-- [ ] Cada presupuesto muestra lo gastado, lo que queda o el exceso, y su estado.
-- [ ] Guardar un gasto que cruza el 80 % o el 100 % lo avisa en el mensaje.
-- [ ] Un fijo con día 31 genera el 28 o 29 en febrero.
-- [ ] Abrir la app después de dos meses sin usarla genera los dos meses que faltaban, sin duplicar.
-- [ ] Un gasto fijo borrado no vuelve a aparecer.
-- [ ] Una copia exportada y restaurada conserva gastos, presupuestos y fijos; una copia vieja (v1) se restaura sin error.
-- [ ] Los datos del usuario se mantienen después de actualizar.
-- [ ] Tests en verde y sin desborde a 375 px.
+- [x] Se puede definir, cambiar y quitar un presupuesto por categoría, uno hormiga y uno total.
+- [x] Cada presupuesto muestra lo gastado, lo que queda o el exceso, y su estado.
+- [x] Guardar un gasto que cruza el 80 % o el 100 % lo avisa en el mensaje.
+- [x] Un fijo con día 31 genera el 28 o 29 en febrero.
+- [x] Abrir la app después de dos meses sin usarla genera los dos meses que faltaban, sin duplicar.
+- [x] Un gasto fijo borrado no vuelve a aparecer.
+- [x] Una copia exportada y restaurada conserva gastos, presupuestos y fijos; una copia vieja (v1) se restaura sin error.
+- [x] Los datos del usuario se mantienen después de actualizar.
+- [x] Tests en verde y sin desborde a 375 px.
 
 ## Decisiones (aprobado 2026-10-25)
 1. Barra de pestañas abajo: Gastos, Presupuestos, Fijos y Copia.

@@ -1,0 +1,329 @@
+<title>Gastos Hormiga</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one narrow column like a phone ledger; summary first, quick entry, then breakdown and the day-by-day list */
+:root {
+  --bg: #f2f4ef;
+  --surface: #ffffff;
+  --ink: #1c2620;
+  --muted: #5f6d64;
+  --line: #d9dfd6;
+  --accent: #116b52;
+  --accent-ink: #ffffff;
+  --ant: #b5470f;
+  --ant-soft: #f6e3d6;
+  --danger: #a3261d;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121814; --surface: #1b231e; --ink: #e6ece6; --muted: #9aa89f; --line: #2d3831;
+    --accent: #3fbf92; --accent-ink: #0c1a14; --ant: #f08a4b; --ant-soft: #3a261a; --danger: #f07a70;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121814; --surface: #1b231e; --ink: #e6ece6; --muted: #9aa89f; --line: #2d3831;
+  --accent: #3fbf92; --accent-ink: #0c1a14; --ant: #f08a4b; --ant-soft: #3a261a; --danger: #f07a70;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font: 16px/1.45 var(--body); }
+.wrap {
+  max-width: 520px; margin: 0 auto; display: grid; gap: 22px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px 48px;
+}
+h1, h2 { font-family: var(--display); margin: 0; text-wrap: balance; }
+h2 { font-size: 1.05rem; font-weight: 600; margin-bottom: 10px; }
+.lbl { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.top h1 { font-size: 1.35rem; font-weight: 800; text-transform: capitalize; }
+.nav { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); font-size: 1.4rem; line-height: 1; }
+
+.resumen { display: grid; gap: 10px; }
+.total .big { display: block; font-family: var(--mono); font-weight: 600; font-size: clamp(2.2rem, 11vw, 3rem); letter-spacing: -.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.hormiga { background: var(--ant-soft); color: var(--ink); border-radius: 14px; padding: 12px 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.hormiga .lbl { color: var(--ant); flex-basis: 100%; }
+.hormiga .val { font-family: var(--mono); font-weight: 600; font-size: 1.4rem; color: var(--ant); }
+.hormiga .sub { color: var(--muted); font-size: .9rem; }
+.proy { margin: 0; font-size: .95rem; color: var(--muted); }
+.proy strong { color: var(--ant); font-family: var(--mono); }
+
+form { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px; display: grid; gap: 14px; }
+.monto-row { display: flex; align-items: center; gap: 6px; border-bottom: 2px solid var(--accent); }
+.monto-row span { font-family: var(--mono); font-size: 1.8rem; color: var(--muted); }
+#monto { flex: 1; min-width: 0; border: 0; background: transparent; font-family: var(--mono); font-size: 2rem; font-weight: 600; padding: 4px 0; outline: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 8px 14px; font-size: .92rem; min-height: 40px; }
+.chip[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.chip .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--ant); margin-left: 6px; vertical-align: middle; }
+.chip[aria-checked="true"] .dot { background: var(--accent-ink); }
+.row2 { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+.row2 input { min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); padding: 10px 12px; }
+.check { display: flex; align-items: center; gap: 10px; font-size: .95rem; }
+.check input { width: 22px; height: 22px; accent-color: var(--ant); }
+.primary { border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-ink); font-weight: 600; font-size: 1.05rem; padding: 14px; }
+.primary:disabled { opacity: .5; cursor: not-allowed; }
+.msg { margin: 0; font-size: .9rem; color: var(--muted); min-height: 1.3em; }
+.msg.err { color: var(--danger); }
+
+.bars { display: grid; gap: 10px; }
+.bar { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: .95rem; }
+.bar .track { grid-column: 1 / -1; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.bar .fill { height: 100%; background: var(--accent); border-radius: 4px; }
+.bar.ant .fill { background: var(--ant); }
+
+.dia { display: grid; gap: 2px; margin-bottom: 14px; }
+.dia-h { display: flex; justify-content: space-between; color: var(--muted); font-size: .85rem; padding-bottom: 4px; border-bottom: 1px solid var(--line); text-transform: capitalize; }
+.item { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.item .what { min-width: 0; }
+.item .cat { font-weight: 500; }
+.item .nota { display: block; color: var(--muted); font-size: .88rem; overflow-wrap: anywhere; }
+.tag { font-size: .7rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ant); margin-left: 6px; }
+.del { border: 0; background: transparent; color: var(--muted); font-size: .85rem; padding: 8px 4px; min-height: 40px; }
+.empty { color: var(--muted); margin: 0; }
+
+#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); border-radius: 12px; padding: 10px 12px 10px 16px; display: flex; gap: 14px; align-items: center; box-shadow: 0 6px 20px rgba(0,0,0,.25); max-width: calc(100% - 32px); }
+#toast button { border: 0; background: transparent; color: var(--bg); font-weight: 600; text-decoration: underline; padding: 6px; }
+@media (prefers-reduced-motion: no-preference) { .fill { transition: width .3s ease; } }
+</style>
+
+<main class="wrap">
+  <header class="top">
+    <button class="nav" id="prev" type="button" aria-label="Mes anterior">‹</button>
+    <h1 id="mes">Este mes</h1>
+    <button class="nav" id="next" type="button" aria-label="Mes siguiente">›</button>
+  </header>
+
+  <section class="resumen" aria-live="polite">
+    <div class="total"><span class="lbl">Gastaste en el mes</span><span class="big" id="total">$ 0</span></div>
+    <div class="hormiga"><span class="lbl">Gastos hormiga</span><span class="val" id="hTotal">$ 0</span><span class="sub" id="hPct"></span></div>
+    <p class="proy" id="proy"></p>
+  </section>
+
+  <form id="form" novalidate>
+    <label for="monto" class="lbl">Nuevo gasto</label>
+    <div class="monto-row"><span aria-hidden="true">$</span><input id="monto" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Monto en pesos"></div>
+    <div id="cats" class="chips" role="radiogroup" aria-label="Categoría"></div>
+    <div class="row2">
+      <input id="nota" placeholder="Nota (opcional)" maxlength="80" aria-label="Nota">
+      <input id="fecha" type="date" aria-label="Fecha">
+    </div>
+    <label class="check"><input type="checkbox" id="esHormiga"> Es un gasto hormiga</label>
+    <button class="primary" id="agregar" type="submit">Agregar gasto</button>
+    <p class="msg" id="msg" role="status"></p>
+  </form>
+
+  <section><h2>Por categoría</h2><div class="bars" id="porCat"></div></section>
+  <section><h2>Movimientos</h2><div id="lista"></div></section>
+</main>
+<div id="toast" hidden><span id="toastTxt"></span><button id="undo" type="button">Deshacer</button></div>
+
+<script>
+// [id, label, hormiga por defecto]
+const CATS = [
+  ["kiosco", "Kiosco", true], ["cafe", "Café", true], ["delivery", "Delivery", true],
+  ["comida", "Comida", false], ["super", "Súper", false], ["transporte", "Transporte", false],
+  ["salidas", "Salidas", false], ["servicios", "Servicios", false], ["salud", "Salud", false],
+  ["ropa", "Ropa", false], ["otros", "Otros", false],
+];
+const CAT = Object.fromEntries(CATS.map(([id, label, h]) => [id, { label, h }]));
+const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 });
+const fmt = n => money.format(n);
+const monthFmt = new Intl.DateTimeFormat("es-AR", { month: "long", year: "numeric" });
+const dayFmt = new Intl.DateTimeFormat("es-AR", { weekday: "short", day: "numeric", month: "short" });
+const $ = id => document.getElementById(id);
+
+// Accepts "1.500", "1500,50", "2.5", "$ 300"; anything not positive is NaN.
+function parseMonto(s) {
+  s = String(s).replace(/[$\s]/g, "");
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
+  const n = Number(s);
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : NaN;
+}
+console.assert(parseMonto("1.500") === 1500 && parseMonto("1500,50") === 1500.5 && parseMonto("2.5") === 2.5
+  && parseMonto("$ 300") === 300 && isNaN(parseMonto("abc")) && isNaN(parseMonto("-3")) && isNaN(parseMonto("")), "parseMonto");
+
+const iso = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+const today = () => iso(new Date());
+const pad = n => String(n).padStart(2, "0");
+
+let db = null, unsub = null, gastos = [], canWrite = true;
+let view = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; })();
+let cat = "kiosco", lastDeleted = null, toastTimer = 0;
+
+function range() {
+  const a = `${view.y}-${pad(view.m + 1)}-01`;
+  const n = new Date(view.y, view.m + 1, 1);
+  return [a, `${n.getFullYear()}-${pad(n.getMonth() + 1)}-01`];
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function renderCats() {
+  const box = $("cats");
+  box.replaceChildren(...CATS.map(([id, label, h]) => {
+    const b = el("button", "chip", label);
+    b.type = "button"; b.setAttribute("role", "radio"); b.setAttribute("aria-checked", String(id === cat));
+    if (h) { const d = el("span", "dot"); d.setAttribute("aria-hidden", "true"); b.append(d); }
+    b.onclick = () => { cat = id; $("esHormiga").checked = h; renderCats(); };
+    return b;
+  }));
+}
+
+function render() {
+  $("mes").textContent = monthFmt.format(new Date(view.y, view.m, 1));
+  const total = gastos.reduce((s, g) => s + g.monto, 0);
+  const hormiga = gastos.filter(g => g.hormiga).reduce((s, g) => s + g.monto, 0);
+  $("total").textContent = fmt(total);
+  $("hTotal").textContent = fmt(hormiga);
+  $("hPct").textContent = total ? `${Math.round(hormiga / total * 100)}% del total` : "";
+
+  const now = new Date();
+  const isCurrent = view.y === now.getFullYear() && view.m === now.getMonth();
+  const days = isCurrent ? now.getDate() : new Date(view.y, view.m + 1, 0).getDate();
+  const proy = $("proy");
+  proy.replaceChildren();
+  if (hormiga > 0) {
+    proy.append(isCurrent ? "A este ritmo, tus gastos hormiga suman " : "A ese ritmo, los gastos hormiga sumarían ",
+      el("strong", null, fmt(Math.round(hormiga / days * 365))), " al año.");
+  }
+
+  const byCat = {};
+  for (const g of gastos) byCat[g.cat] = (byCat[g.cat] || 0) + g.monto;
+  const rows = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+  const max = rows.length ? rows[0][1] : 1;
+  $("porCat").replaceChildren(...(rows.length ? rows.map(([id, v]) => {
+    const r = el("div", "bar" + (CAT[id]?.h ? " ant" : ""));
+    const track = el("div", "track"), fill = el("div", "fill");
+    fill.style.width = `${Math.max(2, v / max * 100)}%`;
+    track.append(fill);
+    r.append(el("span", null, CAT[id]?.label || id), el("span", "num", fmt(v)), track);
+    return r;
+  }) : [el("p", "empty", "Sin gastos todavía.")]));
+
+  const byDay = {};
+  for (const g of gastos) (byDay[g.fecha] ||= []).push(g);
+  const dias = Object.keys(byDay).sort().reverse();
+  $("lista").replaceChildren(...(dias.length ? dias.map(f => {
+    const items = byDay[f].sort((a, b) => b.ts - a.ts);
+    const box = el("div", "dia");
+    const h = el("div", "dia-h");
+    h.append(el("span", null, dayFmt.format(new Date(f + "T12:00"))), el("span", "num", fmt(items.reduce((s, g) => s + g.monto, 0))));
+    box.append(h, ...items.map(g => {
+      const row = el("div", "item");
+      const what = el("div", "what");
+      const c = el("span", "cat", CAT[g.cat]?.label || g.cat);
+      what.append(c);
+      if (g.hormiga) what.append(el("span", "tag", "hormiga"));
+      if (g.nota) what.append(el("span", "nota", g.nota));
+      const del = el("button", "del", "Borrar");
+      del.type = "button"; del.setAttribute("aria-label", `Borrar ${c.textContent} ${fmt(g.monto)}`);
+      del.disabled = !canWrite;
+      del.onclick = () => borrar(g);
+      row.append(what, el("span", "num", fmt(g.monto)), del);
+      return row;
+    }));
+    return box;
+  }) : [el("p", "empty", `No hay gastos en ${$("mes").textContent}. Cargá el primero arriba.`)]));
+}
+
+function say(text, err) { const m = $("msg"); m.textContent = text; m.classList.toggle("err", !!err); }
+
+function explain(e) {
+  if (e?.code === "invalid_argument") { canWrite = false; $("agregar").disabled = true; render(); return "No tenés permiso para cargar gastos en esta página."; }
+  if (e?.code === "quota_exceeded") return "Se llenó el espacio de la app. Borrá gastos viejos para seguir cargando.";
+  return "No se pudo guardar. Revisá la conexión y probá de nuevo.";
+}
+
+async function retryOnce(fn) {
+  try { return await fn(); }
+  catch (e) {
+    if (e?.code !== "unavailable") throw e;
+    await new Promise(r => setTimeout(r, 400 + Math.random() * 600));
+    return fn();
+  }
+}
+
+function subscribe() {
+  unsub?.();
+  gastos = []; render();
+  if (!db) return;
+  const [a, b] = range();
+  unsub = db.collection("gastos").where("fecha", ">=", a).where("fecha", "<", b).onSnapshot(
+    s => { gastos = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); },
+    () => say("Se cortó la conexión con tus datos. Recargá la página.", true));
+}
+
+async function borrar(g) {
+  const { id, ...data } = g;
+  try {
+    await retryOnce(() => db.collection("gastos").doc(id).delete());
+    lastDeleted = { id, data };
+    $("toastTxt").textContent = `Borraste ${fmt(g.monto)}`;
+    $("toast").hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { $("toast").hidden = true; lastDeleted = null; }, 6000);
+  } catch (e) { say(explain(e), true); }
+}
+
+$("undo").onclick = async () => {
+  const d = lastDeleted; if (!d) return;
+  $("toast").hidden = true; lastDeleted = null;
+  try { await retryOnce(() => db.collection("gastos").doc(d.id).set(d.data)); }
+  catch (e) { say(explain(e), true); }
+};
+
+$("form").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  if (!db) return;
+  const monto = parseMonto($("monto").value);
+  if (isNaN(monto)) { say("Escribí un monto mayor a cero, por ejemplo 1500 o 1.500,50.", true); $("monto").focus(); return; }
+  const fecha = $("fecha").value || today();
+  const btn = $("agregar");
+  btn.disabled = true;
+  const ref = db.collection("gastos").doc();
+  try {
+    await retryOnce(() => ref.set({ monto, cat, nota: $("nota").value.trim(), fecha, hormiga: $("esHormiga").checked, ts: Date.now() }));
+    const [a, b] = range();
+    say(fecha >= a && fecha < b ? `Guardado: ${fmt(monto)} en ${CAT[cat].label}.` : `Guardado en ${monthFmt.format(new Date(fecha + "T12:00"))}.`);
+    $("monto").value = ""; $("nota").value = "";
+    $("monto").focus();
+  } catch (e) { say(explain(e), true); }
+  btn.disabled = !canWrite;
+});
+
+$("prev").onclick = () => { view = view.m ? { y: view.y, m: view.m - 1 } : { y: view.y - 1, m: 11 }; subscribe(); };
+$("next").onclick = () => { view = view.m < 11 ? { y: view.y, m: view.m + 1 } : { y: view.y + 1, m: 0 }; subscribe(); };
+
+$("fecha").value = today();
+$("esHormiga").checked = CAT[cat].h;
+renderCats();
+render();
+
+(async () => {
+  db = await window.claude?.use?.("db") ?? null;
+  if (!db) {
+    $("agregar").disabled = true;
+    say("Abrí esta página desde claude.ai con tu cuenta iniciada para guardar gastos.", true);
+    return;
+  }
+  subscribe();
+})();
+</script>
