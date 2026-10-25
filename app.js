@@ -347,6 +347,7 @@ const svg = (tag, attrs = {}) => {
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
   return e;
 };
+const pesos = n => fmt(Math.round(n)).replace(/,00$/, ""); // whole pesos where columns are tight
 const compact = new Intl.NumberFormat("es-AR", { notation: "compact", maximumFractionDigits: 1 });
 const mesCorto = (y, m) => new Intl.DateTimeFormat("es-AR", { month: "short" }).format(new Date(y, m, 1)).replace(".", "");
 let rango = (() => { try { return Number(localStorage.getItem(RANGO_KEY)) === 12 ? 12 : 6; } catch { return 6; } })();
@@ -450,9 +451,9 @@ function renderMeses() {
   if (conDatos.length) {
     const prom = conDatos.reduce((a, s) => a + s.total, 0) / conDatos.length;
     const top = conDatos.reduce((a, s) => s.total > a.total ? s : a);
-    $("mPromedio").textContent = fmt(Math.round(prom));
+    $("mPromedio").textContent = pesos(prom);
     $("mPromedioSub").textContent = conDatos.length === 1 ? "en 1 mes con gastos" : `en ${conDatos.length} meses`;
-    $("mMax").textContent = fmt(top.total);
+    $("mMax").textContent = pesos(top.total);
     $("mMaxSub").textContent = monthFmt.format(new Date(top.y, top.m, 1));
   } else {
     $("mPromedio").textContent = $("mMax").textContent = "—";
@@ -475,20 +476,23 @@ function renderMeses() {
   const rows = compararCategorias(S.gastos, view.y, view.m);
   const prev = new Date(view.y, view.m - 1, 1);
   const thead = el("thead"), hr = el("tr");
-  for (const h of ["Categoría", cap(mesCorto(view.y, view.m)), cap(mesCorto(prev.getFullYear(), prev.getMonth())), "Diferencia"]) {
+  for (const h of ["Categoría", cap(mesCorto(view.y, view.m)), cap(mesCorto(prev.getFullYear(), prev.getMonth()))]) {
     const th = el("th", null, h); th.scope = "col"; hr.append(th);
   }
   thead.append(hr);
   const tbody = el("tbody");
   if (!rows.length) {
     const tr = el("tr"), td = el("td", "empty", "Sin gastos en estos dos meses.");
-    td.colSpan = 4; tr.append(td); tbody.append(tr);
+    td.colSpan = 3; tr.append(td); tbody.append(tr);
   }
   for (const r of rows) {
     const tr = el("tr");
     const name = el("th", null, CAT[r.cat]?.label ?? r.cat); name.scope = "row";
-    const diff = r.delta > 0 ? `▲ ${fmt(r.delta)}` : r.delta < 0 ? `▼ ${fmt(-r.delta)}` : "= igual";
-    tr.append(name, el("td", "num", fmt(r.actual)), el("td", "num", fmt(r.anterior)), el("td", "num " + (r.delta > 0 ? "up" : r.delta < 0 ? "down" : ""), diff));
+    // The difference sits under this month's amount: a fourth column does not fit a phone.
+    const diff = r.delta > 0 ? `▲ ${pesos(r.delta)}` : r.delta < 0 ? `▼ ${pesos(-r.delta)}` : "= igual";
+    const actual = el("td", "num", pesos(r.actual));
+    actual.append(el("span", "delta", diff));
+    tr.append(name, actual, el("td", "num", pesos(r.anterior)));
     tbody.append(tr);
   }
   $("cmpTabla").replaceChildren(thead, tbody);
