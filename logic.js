@@ -352,3 +352,40 @@ export function repetirIngresos(ingresos, y, m, ts = Date.now()) {
     .map(x => ({ id: crypto.randomUUID(), monto: x.monto, concepto: x.concepto,
       fecha: `${mesKey(y, m)}-${pad(Math.min(Number(x.fecha.slice(8)), ultimo))}`, ts }));
 }
+
+// The new-expense keypad has a + key: "1500+800" is 2300. Each part follows parseMonto; a trailing + is still being typed.
+export function evaluarMonto(s) {
+  const partes = String(s ?? "").replace(/\+\s*$/, "").split("+");
+  const total = partes.reduce((acc, p) => acc + parseMonto(p), 0);
+  return total > 0 ? round2(total) : NaN;
+}
+
+// Total of each day of month m (0-11) of year y, for the calendar. nivel 1-4 is the rank among days with spending,
+// so a rent day does not make every other day look empty; equal totals share a level and the highest is always 4.
+export function gastoPorDia(movs, y, m) {
+  const dias = Array.from({ length: new Date(y, m + 1, 0).getDate() }, (_, i) => ({ dia: i + 1, total: 0, nivel: 0 }));
+  const k = mesKey(y, m);
+  for (const g of movs) if (g.fecha.startsWith(k)) dias[Number(g.fecha.slice(8)) - 1].total += g.monto;
+  const orden = dias.map(d => d.total = round2(d.total)).filter(v => v > 0).sort((a, b) => a - b);
+  for (const d of dias) if (d.total > 0) d.nivel = Math.ceil((orden.lastIndexOf(d.total) + 1) / orden.length * 4);
+  return dias;
+}
+
+// One key of the amount keypad applied to what the field shows: "1.500 + 8" plus "0" is "1.500 + 80".
+export function teclear(valor, tecla) {
+  let raw = String(valor ?? "").replace(/[.\s]/g, "");
+  const ultima = raw.split("+").at(-1), [ent, dec] = ultima.split(",");
+  if (tecla === "borrar") raw = raw.slice(0, -1);
+  else if (tecla === "+") { if (ultima && !ultima.endsWith(",")) raw += "+"; }
+  else if (tecla === ",") { if (dec == null) raw += ultima ? "," : "0,"; }
+  else if (/^\d+$/.test(tecla)) {
+    if (dec != null) { if (dec.length + tecla.length <= 2) raw += tecla; }
+    else if (ent === "0") raw = raw.slice(0, -1) + (Number(tecla) ? tecla : "0");
+    else if (!ent && /^0+$/.test(tecla)) raw += tecla.length === 1 ? "0" : "";
+    else if (ent.length + tecla.length <= 10) raw += tecla;
+  }
+  return raw.split("+").map(p => {
+    const [e, d] = p.split(",");
+    return e.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + (d != null ? "," + d : "");
+  }).join(" + ");
+}

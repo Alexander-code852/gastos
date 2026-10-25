@@ -1,6 +1,7 @@
 import { CATS, CAT, leerCategorias, usarCategorias, MEDIOS, MEDIO, parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
   estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial,
-  serieMensual, compararCategorias, escalaY, frecuentes, buscar, leerIPC, aPesosDe, repetirIngresos } from "./logic.js";
+  serieMensual, compararCategorias, escalaY, frecuentes, buscar, leerIPC, aPesosDe, repetirIngresos,
+  evaluarMonto, gastoPorDia, teclear } from "./logic.js";
 
 const KEYS = { gastos: "gastos.v1", presupuestos: "gastos.presupuestos", fijos: "gastos.fijos", ingresos: "gastos.ingresos", categorias: "gastos.categorias" };
 const INSTALAR_KEY = "gastos.instalarCerrado", BACKUP_KEY = "gastos.ultimaCopia", TAB_KEY = "gastos.tab", RANGO_KEY = "gastos.rango", AJUSTE_KEY = "gastos.ajuste", IPC_KEY = "gastos.ipc";
@@ -32,6 +33,7 @@ let view = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getM
 let tab = (() => { try { return localStorage.getItem(TAB_KEY) || "gastos"; } catch { return "gastos"; } })();
 const ym = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
 let cat = CATS[0][0], medio = "efectivo", editingId = null, editingFijo = null, editingIngreso = null, undoState = null, toastTimer = 0;
+let modo = "gasto", fechaOtro = false; // the + sheet: what it is loading, and whether "Otro día" was picked
 
 // Writes every changed key first and only then swaps memory; if any write fails, the earlier ones are rolled back.
 function commit(changes) {
@@ -112,6 +114,31 @@ for (const b of document.querySelectorAll(".tabbar button")) b.onclick = () => s
 
 /* ---------- shared bits ---------- */
 
+// 24×24 stroke icons for the default categories; custom ones show their initial.
+const ICONS = {
+  kiosco: "M6 8h12l-1 12H7L6 8Z M9 8V6a3 3 0 0 1 6 0v2",
+  cafe: "M5 9h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5V9Z M16 10h1.5a2.5 2.5 0 0 1 0 5H16 M8 3v3 M12 3v3",
+  delivery: "M4 8l8-4 8 4v8l-8 4-8-4V8Z M4 8l8 4 8-4 M12 12v8",
+  comida: "M7 3v18 M4.5 3v5a2.5 2.5 0 0 0 5 0V3 M17 21V3c-2.2 1.2-3 4-3 8h3",
+  super: "M3 4h2l2.4 11h10.2L20 7H6.2 M10 20a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z M18 20a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z",
+  transporte: "M6 4h12a1 1 0 0 1 1 1v11H5V5a1 1 0 0 1 1-1Z M5 11h14 M8 16v3 M16 16v3 M8 13.5h.01 M16 13.5h.01",
+  salidas: "M8 3h8v4a4 4 0 0 1-8 0V3Z M12 11v9 M8 20h8",
+  servicios: "M13 3 5 14h6l-1 7 8-11h-6l1-7Z",
+  salud: "M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10Z",
+  ropa: "M9 4 4 7l2 4 2-1v10h8V10l2 1 2-4-5-3a3 3 0 0 1-6 0Z",
+  hogar: "M4 11 12 4l8 7 M6 9.5V20h12V9.5 M10 20v-5h4v5",
+  suscripciones: "M17 3l3 3-3 3 M4 11V9a3 3 0 0 1 3-3h13 M7 21l-3-3 3-3 M20 13v2a3 3 0 0 1-3 3H4",
+  otros: "M6 12h.01 M12 12h.01 M18 12h.01",
+  ingreso: "M12 4v11 M7 10l5 5 5-5 M5 20h14",
+};
+function catIcon(id, small = false) {
+  const s = el("span", "ci" + (id === "ingreso" ? " in" : CAT[id]?.h ? " ant" : "") + (small ? " sm" : ""));
+  s.setAttribute("aria-hidden", "true");
+  if (ICONS[id]) { const v = svg("svg", { viewBox: "0 0 24 24" }); v.append(svg("path", { d: ICONS[id] })); s.append(v); }
+  else s.textContent = (CAT[id]?.label ?? id).charAt(0).toUpperCase();
+  return s;
+}
+
 function chips(box, items, selected, onPick, dotFor) {
   box.replaceChildren(...items.map(([id, label]) => {
     const b = el("button", "chip", label);
@@ -122,7 +149,7 @@ function chips(box, items, selected, onPick, dotFor) {
   }));
 }
 
-function bars(box, rows, label, isAnt, onPick) {
+function bars(box, rows, label, isAnt, onPick, iconos = false) {
   const max = rows.length ? rows[0][1] : 1;
   box.replaceChildren(...(rows.length ? rows.map(([id, v]) => {
     const r = el(onPick ? "button" : "div", "bar" + (isAnt?.(id) ? " ant" : ""));
@@ -130,7 +157,10 @@ function bars(box, rows, label, isAnt, onPick) {
     const track = el("div", "track"), fill = el("div", "fill");
     fill.style.width = `${Math.max(2, v / max * 100)}%`;
     track.append(fill);
-    r.append(el("span", null, label(id)), el("span", "num", fmt(v)), track);
+    const name = el("span", "bar-l");
+    if (iconos) name.append(catIcon(id, true));
+    name.append(label(id));
+    r.append(name, el("span", "num", fmt(v)), track);
     return r;
   }) : [el("p", "empty", "Sin gastos todavía.")]));
 }
@@ -159,13 +189,57 @@ const totalesDelMes = (gastos, y, m) => {
 
 /* ---------- Gastos ---------- */
 
+const ayer = () => { const d = new Date(); d.setDate(d.getDate() - 1); return iso(d); };
+const sinCentavos = n => fmt(n).replace(/,00$/, "");
+
 function renderForm() {
-  chips($("cats"), CATS, cat, id => { cat = id; $("esHormiga").checked = CAT[id].h; renderForm(); }, id => CAT[id].h);
+  const editando = !!(editingId || editingIngreso), gasto = modo === "gasto";
+  for (const b of $("modo").children) b.setAttribute("aria-checked", String(b.dataset.modo === modo));
+  $("modo").hidden = editando; // a saved expense cannot turn into income
+  for (const e of document.querySelectorAll(".solo-gasto")) e.hidden = !gasto;
+  $("form").classList.toggle("ingreso", !gasto);
+  $("nota").placeholder = gasto ? "Nota (opcional)" : "Concepto: sueldo, changa, venta…";
+  $("nota").maxLength = gasto ? 80 : 40;
+  $("nota").setAttribute("aria-label", gasto ? "Nota" : "Concepto del ingreso");
+
+  $("cats").replaceChildren(...CATS.map(([id, label]) => {
+    const b = el("button", "cat-op");
+    b.type = "button"; b.setAttribute("role", "radio"); b.setAttribute("aria-checked", String(id === cat));
+    b.append(catIcon(id), el("span", "cat-op-l", label));
+    b.onclick = () => { cat = id; $("esHormiga").checked = CAT[id].h; renderForm(); };
+    return b;
+  }));
   chips($("medios"), MEDIOS, medio, id => { medio = id; if (id !== "credito") $("cuotas").value = "1"; renderForm(); });
   $("cuotasRow").hidden = medio !== "credito";
-  const n = Number($("cuotas").value), monto = parseMonto($("monto").value);
+
+  const f = $("fecha").value, sel = fechaOtro || (f !== today() && f !== ayer()) ? "otro" : f === today() ? "hoy" : "ayer";
+  chips($("fechas"), [["hoy", "Hoy"], ["ayer", "Ayer"], ["otro", "Otro día"]], sel, id => {
+    fechaOtro = id === "otro";
+    if (id !== "otro") $("fecha").value = id === "hoy" ? today() : ayer();
+    renderForm();
+    if (fechaOtro) { $("fecha").focus(); try { $("fecha").showPicker(); } catch {} }
+  });
+  $("fecha").hidden = sel !== "otro";
+
+  const n = Number($("cuotas").value), monto = evaluarMonto($("monto").value);
   $("cuotaInfo").textContent = n > 1 && monto > 0 ? `${n} cuotas de ${fmt(parteCuota(monto, n, 0))}` : "";
+  $("montoCalc").textContent = $("monto").value.includes("+") && monto > 0 ? `= ${fmt(monto)}` : "";
+  $("guardar").textContent = editando ? "Guardar cambios" : `Agregar ${modo}${monto > 0 ? ` ${sinCentavos(monto)}` : ""}`;
+  const g = editingId && S.gastos.find(x => x.id === editingId);
+  $("formTitle").textContent = g ? (g.cuotas > 1 ? `Editar compra en ${g.cuotas} cuotas (monto total)` : "Editar gasto")
+    : editingIngreso ? "Editar ingreso" : gasto ? "Nuevo gasto" : "Nuevo ingreso";
+  $("repetirHoy").hidden = !editingId;
 }
+
+for (const b of $("modo").children) b.onclick = () => { modo = b.dataset.modo; renderForm(); };
+$("keypad").addEventListener("click", e => {
+  const k = e.target.closest("button")?.dataset.k;
+  if (!k) return;
+  $("monto").value = teclear($("monto").value, k);
+  $("formErr").hidden = true;
+  renderForm();
+});
+$("fecha").addEventListener("change", renderForm);
 
 function renderGastos(movs, r) {
   countTo($("total"), r.total);
@@ -181,7 +255,8 @@ function renderGastos(movs, r) {
 
   renderIngresos(r.total);
 
-  bars($("porCat"), r.porCat, id => CAT[id]?.label ?? id, id => CAT[id]?.h, abrirCategoria);
+  renderCal(movs);
+  bars($("porCat"), r.porCat, id => CAT[id]?.label ?? id, id => CAT[id]?.h, abrirCategoria, true);
   bars($("porMedio"), r.porMedio, id => MEDIO[id] ?? id);
 
   const byDay = {};
@@ -190,6 +265,7 @@ function renderGastos(movs, r) {
   $("lista").replaceChildren(...(dias.length ? dias.map(f => {
     const items = byDay[f].sort((a, b) => b.ts - a.ts);
     const box = el("div", "dia");
+    box.dataset.fecha = f;
     const h = el("div", "dia-h");
     h.append(el("span", null, dayFmt.format(new Date(f + "T12:00"))), el("span", "num", fmt(items.reduce((s, g) => s + g.monto, 0))));
     box.append(h, ...items.map(g => itemRow(g)));
@@ -218,7 +294,7 @@ function itemRow(g, conFecha = false) {
   const cuotas = g.cuota ? `cuota ${g.cuota}/${g.cuotas}` : conFecha && g.cuotas > 1 ? `${g.cuotas} cuotas` : "";
   const meta = [conFecha ? dayFmt.format(new Date(g.fecha + "T12:00")) : "", MEDIO[g.medio], cuotas, g.nota].filter(Boolean).join(" · ");
   if (meta) what.append(el("span", "meta", meta));
-  edit.append(what, el("span", "num", fmt(g.monto)));
+  edit.append(catIcon(g.cat), what, el("span", "num", fmt(g.monto)));
   edit.setAttribute("aria-label", `Editar ${CAT[g.cat]?.label ?? g.cat} ${fmt(g.monto)}`);
   edit.onclick = () => startEdit(g.id);
   const del = el("button", "del", "Borrar");
@@ -308,12 +384,39 @@ function renderRapidos() {
   $("rapidosBtns").replaceChildren(...fr.map(f => {
     const b = el("button", "rapido"), label = CAT[f.cat]?.label ?? f.cat, monto = fmt(f.monto).replace(/,00$/, "");
     b.type = "button";
-    b.append(el("span", "r-cat", label), el("span", "r-monto num", monto), el("span", "r-medio", MEDIO[f.medio] ?? f.medio));
+    b.append(catIcon(f.cat), el("span", "r-cat", label), el("span", "r-monto num", monto), el("span", "r-medio", MEDIO[f.medio] ?? f.medio));
     b.setAttribute("aria-label", `Cargar ${label} ${monto} con ${MEDIO[f.medio] ?? f.medio}, con fecha de hoy`);
     b.onclick = () => guardarGasto({ monto: f.monto, cat: f.cat, medio: f.medio, cuotas: 1, nota: "", fecha: today(), hormiga: f.hormiga },
       null, { gastos: S.gastos });
     return b;
   }));
+}
+
+// Month grid starting on Monday; the shade is the day's rank (gastoPorDia), the exact amount is one tap away.
+let calMes = "";
+function renderCal(movs) {
+  const k = ym(view.y, view.m), hoy = today();
+  const dias = gastoPorDia(movs, view.y, view.m);
+  const pads = Array.from({ length: (new Date(view.y, view.m, 1).getDay() + 6) % 7 }, () => el("span"));
+  $("cal").replaceChildren(...pads, ...dias.map(d => {
+    const f = `${k}-${String(d.dia).padStart(2, "0")}`;
+    const b = el("button", `cal-d n${d.nivel}` + (f === hoy ? " hoy" : f > hoy ? " fut" : ""), String(d.dia));
+    b.type = "button";
+    b.setAttribute("aria-label", `${dayFmt.format(new Date(f + "T12:00"))}: ${d.total ? fmt(d.total) : "sin gastos"}`);
+    b.onclick = () => verDia(f, d.total, movs.filter(g => g.fecha === f).length);
+    return b;
+  }));
+  if (calMes !== k) { calMes = k; $("calInfo").textContent = "Tocá un día para ver cuánto gastaste."; }
+}
+
+function verDia(f, total, n) {
+  $("calInfo").textContent = `${dayFmt.format(new Date(f + "T12:00"))}: ` + (total ? `${fmt(total)} en ${n === 1 ? "1 gasto" : `${n} gastos`}` : "sin gastos");
+  const box = !$("lista").hidden && $("lista").querySelector(`[data-fecha="${f}"]`);
+  if (!box) return;
+  box.scrollIntoView({ behavior: calm.matches ? "auto" : "smooth", block: "start" });
+  box.classList.remove("visto");
+  void box.offsetWidth; // restart the highlight
+  box.classList.add("visto");
 }
 
 /* ---------- Ingresos ---------- */
@@ -342,7 +445,7 @@ function renderIngresos(gastado) {
     edit.type = "button";
     const what = el("span", "what");
     what.append(el("span", "cat", x.concepto), el("span", "meta", dayFmt.format(new Date(x.fecha + "T12:00"))));
-    edit.append(what, el("span", "num ing-monto", `+ ${fmt(x.monto)}`));
+    edit.append(catIcon("ingreso"), what, el("span", "num ing-monto", `+ ${fmt(x.monto)}`));
     edit.setAttribute("aria-label", `Editar ingreso ${x.concepto} ${fmt(x.monto)}`);
     edit.onclick = () => editarIngreso(x.id);
     const del = el("button", "del", "Borrar");
@@ -363,61 +466,47 @@ function renderIngresos(gastado) {
         say(copia.length === 1 ? "Copiaste 1 ingreso. Tocalo para cambiar el monto." : `Copiaste ${copia.length} ingresos. Tocalos para cambiar los montos.`, "", prevState);
     };
   }
-  if (!editingIngreso && !$("iFecha").value.startsWith(k)) $("iFecha").value = fechaIngresoDefault();
 }
 
-function resetIngresoForm() {
-  editingIngreso = null;
-  $("ingForm").reset();
-  $("ingForm").classList.remove("editing");
-  $("iFecha").value = fechaIngresoDefault();
-  $("iGuardar").textContent = "Agregar ingreso";
-  $("ingForm").hidden = true;
-  $("iAbrir").hidden = false;
-}
-
-function abrirIngreso() {
-  $("ingForm").hidden = false;
-  $("iAbrir").hidden = true;
-}
-$("iAbrir").onclick = () => { abrirIngreso(); $("iConcepto").focus(); };
+// Income is loaded and edited in the same + sheet as expenses.
+$("iAbrir").onclick = () => {
+  resetForm();
+  modo = "ingreso";
+  $("fecha").value = fechaIngresoDefault();
+  renderForm();
+  abrirNuevo();
+};
 
 function editarIngreso(id) {
   const x = S.ingresos.find(i => i.id === id);
   if (!x) return;
-  editingIngreso = id;
-  $("iConcepto").value = x.concepto;
-  $("iMonto").value = inputFmt(x.monto);
-  $("iFecha").value = x.fecha;
-  $("ingForm").classList.add("editing");
-  $("iGuardar").textContent = "Guardar cambios";
-  abrirIngreso();
-  $("iMonto").focus();
+  resetForm();
+  editingIngreso = id; modo = "ingreso";
+  $("monto").value = inputFmt(x.monto);
+  $("nota").value = x.concepto;
+  $("fecha").value = x.fecha;
+  $("form").classList.add("editing");
+  renderForm();
+  abrirNuevo();
 }
 
 function borrarIngreso(id) {
   const x = S.ingresos.find(i => i.id === id);
   const prev = { ingresos: S.ingresos };
   if (!x || !commit({ ingresos: S.ingresos.filter(i => i.id !== id) })) return;
-  if (editingIngreso === id) resetIngresoForm();
+  if (editingIngreso === id) resetForm();
   say(`Borraste el ingreso de ${fmt(x.monto)}`, "", prev);
 }
 
-$("ingForm").addEventListener("submit", ev => {
-  ev.preventDefault();
-  const monto = parseMonto($("iMonto").value);
-  if (isNaN(monto)) { say("Escribí un monto mayor a cero, por ejemplo 850000 o 850.000.", "err"); $("iMonto").focus(); return; }
-  const data = { monto, concepto: $("iConcepto").value.trim() || "Ingreso", fecha: $("iFecha").value || fechaIngresoDefault() };
-  const wasEditing = editingIngreso;
+function guardarIngreso(data, wasEditing) {
   const next = wasEditing
     ? S.ingresos.map(x => x.id === wasEditing ? { ...x, ...data } : x)
     : [...S.ingresos, { id: crypto.randomUUID(), ts: Date.now(), ...data }];
-  if (!commit({ ingresos: next })) return;
-  resetIngresoForm();
+  if (!commit({ ingresos: next })) return false;
   const otroMes = !data.fecha.startsWith(ym(view.y, view.m));
-  say(wasEditing ? "Ingreso actualizado." : otroMes ? `Ingreso guardado en ${monthFmt.format(new Date(data.fecha + "T12:00")).toLowerCase()}.` : `Ingreso guardado: ${fmt(monto)}.`);
-});
-$("iCancelar").onclick = resetIngresoForm;
+  say(wasEditing ? "Ingreso actualizado." : otroMes ? `Ingreso guardado en ${monthFmt.format(new Date(data.fecha + "T12:00")).toLowerCase()}.` : `Ingreso guardado: ${fmt(data.monto)}.`);
+  return true;
+}
 
 /* ---------- Categorías ---------- */
 
@@ -505,14 +594,18 @@ function cerrar(d) {
 }
 $("sheet").addEventListener("close", () => { sheetCat = null; });
 // Closing the new-expense sheet without saving drops an edit in progress; a new one keeps its draft.
-$("nuevo").addEventListener("close", () => { if (editingId) resetForm(); });
+$("nuevo").addEventListener("close", () => { if (editingId || editingIngreso) resetForm(); });
 
 function abrirNuevo() {
   $("formErr").hidden = true;
   $("nuevo").showModal();
   $("monto").focus();
 }
-$("fab").onclick = () => { if (editingId) resetForm(); abrirNuevo(); };
+$("fab").onclick = () => {
+  if (editingId || editingIngreso) resetForm();
+  if (!$("monto").value) { modo = "gasto"; renderForm(); } // a draft keeps its type; an empty sheet starts as an expense
+  abrirNuevo();
+};
 
 const wide = matchMedia("(min-width: 960px)");
 for (const [d, head, x] of [[$("sheet"), $("sheetHead"), $("sheetClose")], [$("nuevo"), $("nuevoHead"), $("nuevoClose")], [$("catsDlg"), $("catsHead"), $("catsClose")]]) {
@@ -548,7 +641,7 @@ function renderSheet() {
   const movs = movimientosDelMes(S.gastos, view.y, view.m).filter(g => g.cat === c)
     .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.ts - a.ts);
   const total = movs.reduce((s, g) => s + g.monto, 0);
-  $("sheetTitle").textContent = label;
+  $("sheetTitle").replaceChildren(catIcon(c), label);
   $("sheetMes").textContent = monthFmt.format(new Date(view.y, view.m, 1));
   $("sheetTotal").textContent = fmt(total);
   const serie = serieMensual(S.gastos.filter(g => g.cat === c), view.y, view.m, 6);
@@ -581,12 +674,11 @@ function renderSheet() {
 }
 
 function resetForm() {
-  editingId = null;
+  editingId = editingIngreso = null;
+  fechaOtro = false;
   $("form").classList.remove("editing");
-  $("formTitle").textContent = "Nuevo gasto";
-  $("guardar").textContent = "Agregar gasto";
-  $("cancelar").hidden = true;
   $("monto").value = ""; $("nota").value = ""; $("cuotas").value = "1";
+  $("fecha").value = fechaAuto = today();
   renderForm();
 }
 
@@ -594,7 +686,8 @@ function startEdit(id) {
   const g = S.gastos.find(x => x.id === id);
   if (!g) return;
   if ($("sheet").open) $("sheet").close();
-  editingId = id;
+  resetForm();
+  editingId = id; modo = "gasto";
   cat = g.cat; medio = g.medio;
   $("monto").value = inputFmt(g.monto);
   $("nota").value = g.nota || "";
@@ -602,9 +695,6 @@ function startEdit(id) {
   $("cuotas").value = String(g.cuotas || 1);
   $("esHormiga").checked = !!g.hormiga;
   $("form").classList.add("editing");
-  $("formTitle").textContent = g.cuotas > 1 ? `Editar compra en ${g.cuotas} cuotas (monto total)` : "Editar gasto";
-  $("guardar").textContent = "Guardar cambios";
-  $("cancelar").hidden = false;
   renderForm();
   abrirNuevo();
 }
@@ -630,18 +720,36 @@ function avisos(antes, despues, gCat) {
   return out.map(({ a, donde }) => a.tipo === "pasado" ? `Te pasaste ${fmt(a.monto)} ${donde}.` : `Te quedan ${fmt(a.monto)} ${donde}.`);
 }
 
+// What the sheet holds as an expense, or null after pointing at a bad amount.
+function gastoDelForm(fecha) {
+  const monto = evaluarMonto($("monto").value);
+  if (isNaN(monto)) { $("formErr").hidden = false; $("monto").focus(); return null; }
+  return { monto, cat, medio, cuotas: medio === "credito" ? Number($("cuotas").value) : 1,
+    nota: $("nota").value.trim(), fecha, hormiga: $("esHormiga").checked };
+}
+
 $("form").addEventListener("submit", ev => {
   ev.preventDefault();
-  const monto = parseMonto($("monto").value);
-  if (isNaN(monto)) { $("formErr").hidden = false; $("monto").focus(); return; }
   const fecha = $("fecha").value || today();
-  const data = { monto, cat, medio, cuotas: medio === "credito" ? Number($("cuotas").value) : 1,
-    nota: $("nota").value.trim(), fecha, hormiga: $("esHormiga").checked };
-  const wasEditing = editingId;
-  if (!guardarGasto(data, wasEditing)) return;
+  if (modo === "ingreso") {
+    const monto = evaluarMonto($("monto").value);
+    if (isNaN(monto)) { $("formErr").hidden = false; $("monto").focus(); return; }
+    if (!guardarIngreso({ monto, concepto: $("nota").value.trim() || "Ingreso", fecha }, editingIngreso)) return;
+  } else {
+    const data = gastoDelForm(fecha);
+    if (!data || !guardarGasto(data, editingId)) return;
+  }
   resetForm();
   cerrar($("nuevo"));
 });
+
+// Copies the expense being edited as a new one dated today; the original stays as it was.
+$("repetirHoy").onclick = () => {
+  const data = gastoDelForm(today());
+  if (!data || !guardarGasto(data, null, { gastos: S.gastos })) return;
+  resetForm();
+  cerrar($("nuevo"));
+};
 
 // Saves a new or edited expense and reports it with the budget warnings of the month it lands in.
 function guardarGasto(data, wasEditing = null, undo = null) {
@@ -659,7 +767,6 @@ function guardarGasto(data, wasEditing = null, undo = null) {
   return true;
 }
 
-$("cancelar").onclick = () => cerrar($("nuevo"));
 $("monto").addEventListener("input", () => { $("formErr").hidden = true; renderForm(); });
 $("cuotas").addEventListener("change", renderForm);
 $("prev").onclick = () => { view = view.m ? { y: view.y, m: view.m - 1 } : { y: view.y - 1, m: 11 }; render(); };
@@ -1147,7 +1254,6 @@ $("fecha").value = fechaAuto;
 $("esHormiga").checked = CAT[cat].h;
 renderForm();
 resetFijoForm();
-resetIngresoForm();
 showTab(TABS.includes(tab) ? tab : "gastos");
 const creados = aplicarFijos();
 if (creados) say(creados === 1 ? "Se cargó 1 gasto fijo." : `Se cargaron ${creados} gastos fijos.`);

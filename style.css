@@ -114,7 +114,7 @@ button { cursor: pointer; }
 /* Quick add: the most repeated expenses, one tap each */
 .rapidos { display: grid; gap: 8px; }
 .rapidos-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.rapido { display: grid; justify-items: start; gap: 0; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 18px; padding: 10px 14px; box-shadow: var(--shadow); min-width: 0; transition: transform .2s var(--spring), border-color .2s; }
+.rapido { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center; justify-items: start; gap: 0; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 18px; padding: 10px 14px; box-shadow: var(--shadow); min-width: 0; transition: transform .2s var(--spring), border-color .2s; }
 .rapido > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .r-cat { font-weight: 700; font-size: .9rem; }
 .r-monto { font-family: var(--display); font-weight: 800; font-size: 1.2rem; letter-spacing: -.02em; color: var(--accent); }
@@ -140,12 +140,6 @@ button { cursor: pointer; }
 .card-h .num { font-family: var(--display); font-weight: 800; color: var(--accent); }
 .ing-monto { color: var(--accent); font-weight: 700; }
 .repetir { width: 100%; margin: 4px 0 10px; border-style: dashed; color: var(--accent); font-weight: 700; }
-form.ing-form { background: none; border: 0; box-shadow: none; padding: 12px 0 0; gap: 10px; border-top: 1px solid var(--line); border-radius: 0; }
-#ingLista:empty + .repetir[hidden] + #iAbrir + form.ing-form { border-top: 0; padding-top: 0; }
-form.ing-form.editing { box-shadow: none; }
-.ing-form > input { min-width: 0; width: 100%; min-height: 46px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 10px 12px; }
-.ing-form input:focus { border-color: var(--accent); outline: none; }
-.secondary.grow { flex: 1; color: var(--accent); border-color: var(--accent); font-weight: 700; }
 
 /* Inflation switch in Meses */
 .ajuste { display: grid; gap: 6px; }
@@ -167,7 +161,7 @@ html:has(.sheet[open]) { overflow: hidden; }
 .sheet-in { display: flex; flex-direction: column; max-height: inherit; }
 .sheet-h { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 20px 16px 6px; touch-action: none; cursor: grab; }
 .grab { position: absolute; top: 8px; left: 50%; width: 40px; height: 5px; margin-left: -20px; border-radius: 3px; background: var(--line); }
-.sheet-h h2 { margin: 0; font-size: 1.4rem; }
+.sheet-h h2 { margin: 0; font-size: 1.4rem; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .x { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--surface-2); color: var(--muted); font-size: 1.5rem; line-height: 1; }
 .sheet-body { overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px calc(20px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 16px; }
 .sheet-total { display: grid; gap: 2px; }
@@ -175,7 +169,6 @@ html:has(.sheet[open]) { overflow: hidden; }
 .sheet .budget { margin-top: 0; }
 /* The new-expense form lives in a sheet, which already is the card */
 .sheet form, .sheet form.editing { background: none; border: 0; box-shadow: none; padding: 0 0 4px; }
-.edit-cats { justify-self: start; margin-top: -6px; }
 #catsLista { display: grid; }
 .cat-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .cat-row .link { min-width: 4.6em; text-align: right; }
@@ -188,13 +181,85 @@ html:has(.sheet[open]) { overflow: hidden; }
 .form-err { margin: 0; color: var(--danger); font-weight: 600; font-size: .9rem; }
 
 .fab {
-  position: fixed; z-index: 7; width: 60px; height: 60px; border-radius: 20px; border: 0;
+  position: fixed; z-index: 7; width: 62px; height: 62px; border-radius: 50%; border: 0;
   right: max(16px, env(safe-area-inset-right, 0px), calc(50% - 244px));
-  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
-  background: var(--accent); color: var(--accent-ink); box-shadow: 0 10px 24px -8px rgba(13, 60, 44, .6);
-  display: grid; place-items: center; transition: transform .2s var(--spring);
+  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  /* a soft top light and a thin ring read as a pressed-metal button, not a flat sticker */
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 82%, #fff), var(--accent) 55%);
+  color: var(--accent-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 0 0 4px color-mix(in srgb, var(--bg) 70%, transparent),
+    0 2px 4px rgba(13, 60, 44, .25), 0 14px 28px -10px rgba(13, 60, 44, .65);
+  display: grid; place-items: center; transition: transform .2s var(--spring), box-shadow .2s;
 }
-.fab svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+.fab svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; transition: transform .35s var(--spring); }
+/* The + turns into × while its sheet is open */
+html:has(#nuevo[open]) .fab svg { transform: rotate(135deg); }
+
+/* Category icon tiles */
+.ci { flex: none; display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); font-family: var(--display); font-weight: 800; font-size: 1rem; }
+.ci svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ci.ant { background: var(--ant-soft); color: var(--ant); }
+.ci.in { background: var(--accent); color: var(--accent-ink); }
+.ci.sm { width: 26px; height: 26px; border-radius: 8px; font-size: .8rem; }
+.ci.sm svg { width: 16px; height: 16px; }
+.bar-l { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.rapido .ci { grid-row: span 3; }
+
+/* The + sheet: amount on top, details scroll in the middle, keypad and save button under the thumb */
+#nuevo { max-height: 94vh; max-height: 94dvh; }
+#nuevo .sheet-h { padding-bottom: 0; }
+#nuevo .sheet-in > form.nuevo-form { display: flex; flex-direction: column; gap: 0; flex: 1; min-height: 0; padding: 0; }
+.nuevo-top { display: grid; gap: 10px; padding: 8px 16px 10px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); }
+.seg button { border: 0; background: transparent; border-radius: 9px; padding: 7px 0; font-weight: 700; font-size: .92rem; color: var(--muted); transition: background .2s, color .2s; }
+.seg button[aria-checked="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.nuevo-form .monto-row { justify-content: center; border: 0; gap: 4px; }
+.nuevo-form #monto { flex: 0 1 auto; field-sizing: content; min-width: 1.2ch; max-width: 100%; text-align: center; font-size: clamp(2.1rem, 11vw, 2.9rem); padding: 0; caret-color: var(--accent); }
+@supports not (field-sizing: content) { .nuevo-form #monto { flex: 1; text-align: left; } }
+.nuevo-form.ingreso #monto, .nuevo-form.ingreso .monto-row span { color: var(--accent); }
+.monto-calc { margin: -6px 0 0; text-align: center; color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; min-height: 1.4em; }
+.nuevo-form .form-err { text-align: center; }
+.nuevo-mid { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; align-content: start; gap: 16px; padding: 12px 16px 14px; border-block: 1px solid var(--line); }
+.nuevo-mid > div { display: grid; gap: 8px; min-width: 0; }
+.mid-h { display: flex; align-items: center; justify-content: space-between; }
+.mid-h .link { min-height: 32px; padding: 4px 0; }
+.nuevo-mid .sublbl { margin: 0; }
+.cat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.cat-op { display: grid; justify-items: center; gap: 4px; border: 1px solid transparent; border-radius: 14px; background: transparent; padding: 8px 2px 6px; min-width: 0; transition: background .2s, border-color .2s; }
+.cat-op-l { font-size: .74rem; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-op[aria-checked="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.cat-op[aria-checked="true"] .ci { background: var(--accent); color: var(--accent-ink); }
+.cat-op[aria-checked="true"] .ci.ant { background: var(--ant); color: #fff; }
+.nota { min-width: 0; width: 100%; min-height: 46px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 10px 12px; }
+.nota:focus, #fecha:focus { border-color: var(--accent); outline: none; }
+#fecha { min-height: 44px; width: 100%; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 8px 12px; }
+.nuevo-foot { display: grid; gap: 10px; padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: var(--surface); }
+.keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.keypad button { min-height: 44px; border: 0; border-radius: 12px; background: var(--surface-2); font-family: var(--display); font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; touch-action: manipulation; transition: background .12s, transform .12s; }
+.keypad .k-fn { background: color-mix(in srgb, var(--line) 70%, var(--surface-2)); color: var(--ink); }
+.keypad .k-fn svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; vertical-align: middle; }
+.keypad .k-mas { grid-row: span 3; grid-column: 4; font-size: 1.7rem; color: var(--accent); }
+.keypad button:active { background: var(--line); transform: scale(.96); }
+.nuevo-foot .actions .primary { flex: 2; }
+/* The system keyboard is up while typing a note, and a mouse-and-keyboard computer types the amount directly */
+#nuevo:has(.nota:focus) .keypad { display: none; }
+@media (hover: hover) and (pointer: fine) { .keypad { display: none; } }
+
+/* Day-by-day calendar: shades validated with the dataviz ordinal check for each mode */
+/* day numbers: ink per shade, each at least 4.5:1 */
+.cal-card { --cal-1: #7cc4a3; --cal-2: #3f9f7a; --cal-3: #1f7a5b; --cal-4: #0d4f3b; --cal-ink-1: #17211b; --cal-ink-2: #17211b; --cal-ink-hi: #fff; }
+@media (prefers-color-scheme: dark) { .cal-card { --cal-1: #2a6a52; --cal-2: #3a9373; --cal-3: #5cbf98; --cal-4: #a3e8c9; --cal-ink-1: #edf1ec; --cal-ink-2: #0b1712; --cal-ink-hi: #0b1712; } }
+.cal-sem, .cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal-sem { font-size: .7rem; font-weight: 700; color: var(--muted); text-align: center; margin-bottom: 4px; }
+.cal-d { aspect-ratio: 1; min-height: 36px; border: 0; border-radius: 10px; background: var(--surface-2); color: var(--muted); font-size: .82rem; font-weight: 600; font-variant-numeric: tabular-nums; padding: 0; }
+.cal-d.n1 { background: var(--cal-1); color: var(--cal-ink-1); }
+.cal-d.n2 { background: var(--cal-2); color: var(--cal-ink-2); }
+.cal-d.n3 { background: var(--cal-3); color: var(--cal-ink-hi); }
+.cal-d.n4 { background: var(--cal-4); color: var(--cal-ink-hi); }
+.cal-d.hoy { box-shadow: inset 0 0 0 2px var(--ant); font-weight: 800; }
+.cal-d.fut { opacity: .45; }
+.cal-info { margin: 10px 0 0; font-size: .9rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dia { scroll-margin-top: calc(72px + env(safe-area-inset-top, 0px)); border-radius: 12px; }
 .mini { display: grid; gap: 6px; padding: 14px 12px 10px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface-2); }
 .mplot { position: relative; height: 120px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; align-items: end; border-bottom: 1px solid var(--grid); }
 .mcol { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; min-width: 0; }
@@ -222,9 +287,6 @@ form.editing { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-s
 .chip[aria-checked="true"] .dot { background: var(--accent-ink); }
 .cuotas-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .cuotas-row select { border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 8px 10px; }
-.row2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
-.row2 input { min-width: 0; width: 100%; min-height: 46px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 10px 12px; transition: border-color .2s; }
-.row2 input:focus { border-color: var(--accent); outline: none; }
 /* iPhone draws date fields centered and wider than their box; make them sit like the other inputs */
 input[type="date"] { -webkit-appearance: none; appearance: none; display: block; text-align: left; }
 input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
@@ -255,7 +317,7 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
 /* Rows slide over a red Borrar button (see swipeable in app.js) */
 .item { position: relative; overflow: hidden; touch-action: pan-y; border-bottom: 1px solid var(--line); }
 .item:last-child { border-bottom: 0; }
-.item .edit { position: relative; z-index: 1; width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; text-align: left; border: 0; background: var(--surface); padding: 11px 2px 11px 0; min-width: 0; }
+.item .edit { position: relative; z-index: 1; width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; text-align: left; border: 0; background: var(--surface); padding: 11px 2px 11px 0; min-width: 0; }
 .item .edit > .num { font-weight: 700; }
 .item .what { min-width: 0; }
 .item .cat { font-weight: 600; }
@@ -430,6 +492,10 @@ td.num { font-variant-numeric: tabular-nums; }
   .chart .val, .tip:not([hidden]) { animation: fade .3s ease backwards; }
   .item.nuevo { animation: nuevo .45s var(--ease); }
   .item.nuevo .edit { animation: flash 1.4s ease; }
+  .dia.visto .edit { animation: flash 1.6s ease; }
+  .cal-d { transition: transform .2s var(--spring); }
+  .cal-d:active, .cat-op:active { transform: scale(.92); }
+  .fab:hover { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 0 0 4px color-mix(in srgb, var(--bg) 70%, transparent), 0 4px 8px rgba(13, 60, 44, .25), 0 18px 34px -10px rgba(13, 60, 44, .7); }
   .item .edit { transition: transform .28s var(--ease); }
   .item.drag .edit { transition: none; }
   .sheet[open] { animation: sheetIn .38s var(--ease); }
@@ -455,3 +521,7 @@ td.num { font-variant-numeric: tabular-nums; }
   .primary:hover { filter: brightness(1.08); }
   .secondary:hover, .nav:hover { background: var(--surface-2); }
 }
+.cal-leg { display: inline-flex; align-items: center; gap: 3px; font-size: .75rem; color: var(--muted); }
+.cal-leg i { width: 11px; height: 11px; border-radius: 3px; }
+.cal-leg .n1 { background: var(--cal-1); margin-left: 3px; } .cal-leg .n2 { background: var(--cal-2); }
+.cal-leg .n3 { background: var(--cal-3); } .cal-leg .n4 { background: var(--cal-4); margin-right: 3px; }

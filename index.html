@@ -66,22 +66,17 @@
       <div id="ingLista"></div>
       <button class="secondary repetir" id="repetir" type="button" hidden></button>
       <button class="secondary repetir" id="iAbrir" type="button">+ Agregar ingreso</button>
-      <form id="ingForm" class="ing-form" novalidate hidden>
-        <input id="iConcepto" maxlength="40" placeholder="Concepto: sueldo, changa, venta…" aria-label="Concepto del ingreso" autocomplete="off">
-        <div class="row2">
-          <input id="iMonto" inputmode="decimal" placeholder="Monto" aria-label="Monto del ingreso" autocomplete="off">
-          <input id="iFecha" type="date" aria-label="Fecha del ingreso">
-        </div>
-        <div class="actions">
-          <button class="secondary grow" id="iGuardar" type="submit">Agregar ingreso</button>
-          <button class="secondary" id="iCancelar" type="button">Cancelar</button>
-        </div>
-      </form>
     </section>
 
     </div>
 
     <div class="gcol">
+    <section class="card cal-card" aria-labelledby="calH">
+      <div class="card-h"><h2 id="calH">Día por día</h2><span class="cal-leg" aria-hidden="true">Menos <i class="n1"></i><i class="n2"></i><i class="n3"></i><i class="n4"></i> Más</span></div>
+      <div class="cal-sem" aria-hidden="true"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+      <div class="cal" id="cal"></div>
+      <p class="cal-info" id="calInfo" aria-live="polite"></p>
+    </section>
     <section class="card"><h2>Por categoría</h2><div class="bars" id="porCat"></div></section>
     <section class="card"><h2>Por medio de pago</h2><div class="bars" id="porMedio"></div></section>
     <section class="card">
@@ -179,14 +174,25 @@
       <h2 id="formTitle">Nuevo gasto</h2>
       <button class="x" id="nuevoClose" type="button" aria-label="Cerrar">×</button>
     </div>
-    <div class="sheet-body">
-        <form id="form" novalidate>
-          <p class="form-err" id="formErr" role="alert" hidden>Escribí un monto mayor a cero, por ejemplo 1500 o 1.500,50.</p>
-          <div class="monto-row"><span aria-hidden="true">$</span><input id="monto" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Monto en pesos"></div>
-          <div id="cats" class="chips" role="radiogroup" aria-label="Categoría"></div>
-          <button type="button" class="link edit-cats" id="editarCats">Editar categorías</button>
-          <div class="sublbl">Medio de pago</div>
-          <div id="medios" class="chips small" role="radiogroup" aria-label="Medio de pago"></div>
+    <!-- Top and bottom stay put; only the details in the middle scroll -->
+    <form id="form" class="nuevo-form" novalidate>
+      <div class="nuevo-top">
+        <div class="seg" id="modo" role="radiogroup" aria-label="Tipo de movimiento">
+          <button type="button" role="radio" data-modo="gasto" aria-checked="true">Gasto</button>
+          <button type="button" role="radio" data-modo="ingreso" aria-checked="false">Ingreso</button>
+        </div>
+        <div class="monto-row"><span aria-hidden="true">$</span><input id="monto" inputmode="none" autocomplete="off" placeholder="0" aria-label="Monto en pesos" aria-describedby="montoCalc"></div>
+        <p class="monto-calc" id="montoCalc" aria-live="polite"></p>
+        <p class="form-err" id="formErr" role="alert" hidden>Escribí un monto mayor a cero, por ejemplo 1500 o 1.500,50.</p>
+      </div>
+      <div class="nuevo-mid">
+        <div class="solo-gasto">
+          <div class="mid-h"><span class="sublbl" id="catsLbl">Categoría</span><button type="button" class="link" id="editarCats">Editar</button></div>
+          <div id="cats" class="cat-grid" role="radiogroup" aria-labelledby="catsLbl"></div>
+        </div>
+        <div class="solo-gasto">
+          <span class="sublbl" id="mediosLbl">Medio de pago</span>
+          <div id="medios" class="chips small" role="radiogroup" aria-labelledby="mediosLbl"></div>
           <div class="cuotas-row" id="cuotasRow" hidden>
             <label for="cuotas">Cuotas</label>
             <select id="cuotas">
@@ -196,17 +202,30 @@
             </select>
             <span class="sub" id="cuotaInfo"></span>
           </div>
-          <div class="row2">
-            <input id="nota" placeholder="Nota (opcional)" maxlength="80" aria-label="Nota">
-            <input id="fecha" type="date" aria-label="Fecha">
-          </div>
-          <label class="check"><input type="checkbox" id="esHormiga"> Es un gasto hormiga</label>
-          <div class="actions">
-            <button class="primary" id="guardar" type="submit">Agregar gasto</button>
-            <button class="secondary" id="cancelar" type="button" hidden>Cancelar</button>
-          </div>
-        </form>
-    </div>
+        </div>
+        <div>
+          <span class="sublbl" id="fechaLbl">Fecha</span>
+          <div class="chips small" id="fechas" role="radiogroup" aria-labelledby="fechaLbl"></div>
+          <input id="fecha" type="date" aria-label="Fecha" hidden>
+        </div>
+        <input id="nota" class="nota" placeholder="Nota (opcional)" maxlength="80" aria-label="Nota" autocomplete="off">
+        <label class="check solo-gasto"><input type="checkbox" id="esHormiga"> Es un gasto hormiga</label>
+      </div>
+      <div class="nuevo-foot">
+        <div class="keypad" id="keypad" role="group" aria-label="Teclado numérico">
+          <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+          <button type="button" data-k="borrar" class="k-fn" aria-label="Borrar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h11v14H9l-6-7 6-7Z"/><path d="m12 9 5 6m0-6-5 6"/></svg></button>
+          <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+          <button type="button" data-k="+" class="k-fn k-mas" aria-label="Más, para sumar otro monto">+</button>
+          <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+          <button type="button" data-k="," aria-label="Coma decimal">,</button><button type="button" data-k="0">0</button><button type="button" data-k="000" aria-label="Tres ceros">000</button>
+        </div>
+        <div class="actions">
+          <button class="secondary" id="repetirHoy" type="button" hidden>Repetir hoy</button>
+          <button class="primary" id="guardar" type="submit">Agregar gasto</button>
+        </div>
+      </div>
+    </form>
   </div>
 </dialog>
 
