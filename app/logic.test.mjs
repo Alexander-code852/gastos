@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CATS, CAT, leerCategorias, usarCategorias, parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
   estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial,
-  serieMensual, compararCategorias, escalaY, frecuentes, buscar, leerIPC, aPesosDe, repetirIngresos } from "./logic.js";
+  serieMensual, compararCategorias, escalaY, frecuentes, buscar, leerIPC, aPesosDe, repetirIngresos, evaluarMonto, gastoPorDia, teclear } from "./logic.js";
 
 test("monthly series ends at the given month, oldest first, across the year", () => {
   const g = [{ id: "a", monto: 1000, fecha: "2026-01-10", cat: "cafe", medio: "mp", hormiga: true },
@@ -337,4 +337,85 @@ test("leerBackup keeps custom categories carried in the backup", () => {
   assert.equal(r.presupuestos.cat["c-gym"], 100);
   assert.ok(r.categorias.some(c => c.id === "c-gym"));
   assert.equal(leerBackup({ gastos: [] }).categorias, null);
+});
+
+test("evaluarMonto: a single amount reads like parseMonto", () => {
+  assert.equal(evaluarMonto("1.500"), 1500);
+  assert.equal(evaluarMonto("1500,50"), 1500.5);
+  assert.equal(evaluarMonto("$ 300"), 300);
+});
+
+test("evaluarMonto: adds the parts joined by +", () => {
+  assert.equal(evaluarMonto("1500+800"), 2300);
+  assert.equal(evaluarMonto("1.500 + 800,50"), 2300.5);
+  assert.equal(evaluarMonto("0,1+0,2"), 0.3);
+});
+
+test("evaluarMonto: a trailing + is ignored while typing", () => {
+  assert.equal(evaluarMonto("1500+"), 1500);
+});
+
+test("evaluarMonto: empty, zero or broken parts give NaN", () => {
+  for (const s of ["", "+", "0", "abc", "1500++800", "1500+abc", "-5"]) assert.ok(Number.isNaN(evaluarMonto(s)), s);
+});
+
+test("gastoPorDia: one entry per day of the month with its total", () => {
+  const movs = [{ fecha: "2026-02-03", monto: 100 }, { fecha: "2026-02-03", monto: 50.5 }, { fecha: "2026-02-28", monto: 10 }];
+  const d = gastoPorDia(movs, 2026, 1);
+  assert.equal(d.length, 28);
+  assert.equal(d[2].total, 150.5);
+  assert.equal(d[27].total, 10);
+  assert.equal(d[0].total, 0);
+});
+
+test("gastoPorDia: levels 1-4 by rank among days with spending, so one big day does not wash out the rest", () => {
+  const movs = [[1, 100000], [2, 10], [3, 20], [4, 30]].map(([dia, monto]) => ({ fecha: `2026-10-0${dia}`, monto }));
+  const d = gastoPorDia(movs, 2026, 9);
+  assert.deepEqual(d.slice(0, 5).map(x => x.nivel), [4, 1, 2, 3, 0]);
+});
+
+test("gastoPorDia: equal totals share a level and a single day gets the top one", () => {
+  assert.deepEqual(gastoPorDia([{ fecha: "2026-10-05", monto: 9 }], 2026, 9)[4].nivel, 4);
+  const d = gastoPorDia([{ fecha: "2026-10-01", monto: 5 }, { fecha: "2026-10-02", monto: 5 }], 2026, 9);
+  assert.deepEqual([d[0].nivel, d[1].nivel], [4, 4]);
+});
+
+test("teclear: digits group thousands with dots as you type", () => {
+  let v = "";
+  for (const k of ["1", "5", "0", "0"]) v = teclear(v, k);
+  assert.equal(v, "1.500");
+  assert.equal(teclear("1.500", "000"), "1.500.000");
+});
+
+test("teclear: + starts a new part, only after a number", () => {
+  assert.equal(teclear("", "+"), "");
+  assert.equal(teclear("1.500", "+"), "1.500 + ");
+  assert.equal(teclear("1.500 + ", "+"), "1.500 + ");
+  assert.equal(teclear("1.500 + ", "8"), "1.500 + 8");
+  assert.equal(evaluarMonto(teclear(teclear("1.500 + ", "8"), "00")), 2300);
+});
+
+test("teclear: one comma per part, two decimals at most, 0, when it comes first", () => {
+  assert.equal(teclear("", ","), "0,");
+  assert.equal(teclear("12,", ","), "12,");
+  assert.equal(teclear("12,5", "0"), "12,50");
+  assert.equal(teclear("12,50", "1"), "12,50");
+  assert.equal(teclear("1.500,5 + ", ","), "1.500,5 + 0,");
+});
+
+test("teclear: no leading zeros", () => {
+  assert.equal(teclear("", "000"), "");
+  assert.equal(teclear("", "0"), "0");
+  assert.equal(teclear("0", "5"), "5");
+  assert.equal(teclear("0", "000"), "0");
+});
+
+test("teclear: borrar removes the last thing typed, + and its spaces at once", () => {
+  assert.equal(teclear("1.500", "borrar"), "150");
+  assert.equal(teclear("1.500 + ", "borrar"), "1.500");
+  assert.equal(teclear("", "borrar"), "");
+});
+
+test("teclear: caps a part at 10 digits", () => {
+  assert.equal(teclear("1.234.567.890", "1"), "1.234.567.890");
 });

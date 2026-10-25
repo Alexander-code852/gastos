@@ -103,3 +103,18 @@ export function fijosPendientes(fijos, hoy) { ... }
 - **Deslizar:** en Movimientos, resultados de búsqueda e ingresos, deslizar una fila a la izquierda descubre un botón rojo "Borrar"; deslizarla más de la mitad borra directo. Siempre con "Deshacer". El botón gris desaparece; el rojo sigue disponible con teclado y VoiceOver (al enfocarlo, la fila se abre). Deslizar no dispara la edición.
 - **Detalle:** tocar una categoría en "Por categoría" abre un panel desde abajo con el total del mes, la cantidad de gastos, un gráfico de los últimos 6 meses de esa categoría con su promedio y su presupuesto si existe, y los gastos del mes. Se cierra con la X, con Escape, tocando afuera o deslizando hacia abajo desde el encabezado. Si borrás o editás desde el panel, se actualiza.
 - **Éxito:** sin desborde a 375 px en claro y oscuro; con "Reducir movimiento" el panel aparece sin animación.
+
+## Etapa 6: un + profesional, íconos y calendario (aprobado 2026-10-25)
+- **Botón +:** círculo más grande con sombra suave y un anillo; al abrir el panel gira y queda como ×. Sigue arriba de la barra de pestañas.
+- **Panel de carga, rehecho:**
+  - Arriba, un selector **Gasto | Ingreso**. Los ingresos se cargan y editan desde acá; el formulario suelto de la tarjeta Ingresos desaparece (la tarjeta queda como lista, con "Repetir los de <mes>").
+  - El monto, grande y centrado, se escribe con un **teclado numérico propio** (1–9, 0, coma, borrar y **+**), así el teclado del iPhone no tapa el panel. Acepta sumas: "1500+800" muestra "= $ 2.300" y guarda 2.300. Con teclado físico se sigue pudiendo escribir.
+  - **Categorías en grilla con íconos** (4 por fila); las hormiga llevan el punto naranja. Las categorías propias muestran su inicial.
+  - **Fecha en chips:** Hoy · Ayer · Otro día (este abre el calendario del sistema).
+  - Medio de pago, cuotas, nota y "Es un gasto hormiga" quedan, más compactos.
+  - El botón de guardar queda fijo abajo y dice el monto: "Agregar $ 2.300".
+  - Al editar un gasto aparece además **"Repetir hoy"**, que lo copia con la fecha de hoy.
+- **Íconos en toda la app:** los mismos íconos de categoría en Movimientos, Por categoría, frecuentes y el panel de detalle.
+- **Calendario del mes:** en Gastos, una tarjeta con los días del mes en 7 columnas, más oscuro cuanto más gastaste ese día (escala validada con la skill dataviz, se entiende también sin color porque tocar el día muestra el monto). Tocar un día con gastos muestra su total y lleva a ese día en Movimientos.
+- **Éxito:** tests de `evaluarMonto()` (sumas, comas, puntos de miles, entradas inválidas) y de `gastoPorDia()`; un ingreso cargado desde el + aparece en el saldo; sin desborde a 375 px en claro y oscuro; con "Reducir movimiento" no hay animaciones; `VERSION` subida.
+- **Fuera de alcance:** notificaciones, metas de ahorro, sincronizar entre teléfonos.

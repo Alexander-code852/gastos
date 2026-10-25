@@ -46,3 +46,11 @@
 - [x] **17. Deslizar para borrar** (S: app.js, style.css).
 - [x] **18. Panel de detalle por categoría** (M: index.html, style.css, app.js).
 - [x] **19. Revisión y publicación.**
+
+## Etapa 6
+- [x] **20. Lógica** (S: logic.js, logic.test.mjs): `evaluarMonto(texto)` (sumas con +, coma decimal, puntos de miles; inválido → NaN) y `gastoPorDia(movs, y, m)` (total por día del mes).
+- [x] **21. Íconos de categoría** (S: app.js, style.css): `catIcon(id)` con SVG por categoría por defecto e inicial para las propias; en Movimientos, Por categoría, frecuentes y detalle.
+- [x] **22. Panel de carga nuevo** (M: index.html, style.css, app.js): selector Gasto/Ingreso, teclado propio con +, grilla de categorías, fecha en chips, guardar fijo con monto, "Repetir hoy"; el formulario de ingreso de la tarjeta se va. Botón + nuevo que gira a ×.
+  - Verifica: cargar un gasto con "1500+800" y un ingreso desde el +; editar y repetir hoy.
+- [x] **23. Calendario del mes** (S: index.html, style.css, app.js): escala validada con dataviz; tocar un día lleva a ese día en Movimientos.
+- [x] **24. Revisión y publicación**: skill de revisión, capturas a 375 px claro y oscuro, `VERSION`, publicar, comprobar 200.

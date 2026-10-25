@@ -24,3 +24,17 @@ pestañas ──┬── presupuestos (lógica → interfaz)
 | El iPhone sigue mostrando la versión vieja | Medio | Subir `VERSION` en `sw.js` |
 | Copia v1 incompatible | Alto | Test explícito de restauración de una copia v1 |
 | La barra de abajo tapa el contenido o la barra de inicio del iPhone | Bajo | Padding con `env(safe-area-inset-bottom)` y revisión a 375 px |
+
+## Etapa 6: decisiones
+- `evaluarMonto` reemplaza a `parseMonto` solo en el panel de carga; `parseMonto` sigue validando todo lo demás. Cada sumando pasa por `parseMonto`, así "1.500+800,50" funciona igual que hoy.
+- El teclado propio escribe en el mismo `<input id="monto">` con `inputmode="none"`: el iPhone no abre su teclado y en la computadora se puede seguir tecleando.
+- Un solo panel para gasto e ingreso: `modo` = "gasto" | "ingreso"; en modo ingreso se esconden categorías, medio, cuotas y hormiga, y la nota pasa a ser el concepto. Se borra `#ingForm` y su código.
+- Íconos: SVG de trazo en 24×24 armados en `app.js` desde un mapa `id → path`; sin dependencias.
+- Calendario: color de `--cal-*` por cuantil del gasto del mes, validado con el script de la skill dataviz.
+
+## Etapa 6: riesgos
+| Riesgo | Impacto | Mitigación |
+|---|---|---|
+| Sin teclado del sistema no se puede escribir la nota | Medio | El teclado propio se esconde mientras la nota tiene el foco |
+| Editar un ingreso viejo pierde la fecha | Medio | En modo edición la fecha del registro manda; los chips solo cambian si se tocan |
+| VoiceOver no entiende el teclado propio | Medio | Botones con `aria-label` ("borrar", "más", "coma") y el monto sigue siendo un input con etiqueta |
