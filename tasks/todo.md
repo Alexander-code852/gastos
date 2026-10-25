@@ -54,3 +54,9 @@
   - Verifica: cargar un gasto con "1500+800" y un ingreso desde el +; editar y repetir hoy.
 - [x] **23. Calendario del mes** (S: index.html, style.css, app.js): escala validada con dataviz; tocar un día lleva a ese día en Movimientos.
 - [x] **24. Revisión y publicación**: skill de revisión, capturas a 375 px claro y oscuro, `VERSION`, publicar, comprobar 200.
+
+## Etapa 7
+- [x] **25. Lógica** (S: logic.js, logic.test.mjs): `cuotasPendientes`, `sugerirCategoria`, `notasUsadas`, `ordenarCategorias`.
+- [x] **26. Cuotas que vienen** (S: index.html, style.css, app.js).
+- [x] **27. Categoría automática y panel compacto** (M: index.html, style.css, app.js).
+- [x] **28. Revisión (agente revisor) y publicación.**

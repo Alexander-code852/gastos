@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CATS, CAT, leerCategorias, usarCategorias, parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
   estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial,
-  serieMensual, compararCategorias, escalaY, frecuentes, buscar, leerIPC, aPesosDe, repetirIngresos, evaluarMonto, gastoPorDia, teclear } from "./logic.js";
+  serieMensual, compararCategorias, escalaY, frecuentes, buscar, leerIPC, aPesosDe, repetirIngresos, evaluarMonto, gastoPorDia, teclear, cuotasPendientes, sugerirCategoria, notasUsadas, ordenarCategorias } from "./logic.js";
 
 test("monthly series ends at the given month, oldest first, across the year", () => {
   const g = [{ id: "a", monto: 1000, fecha: "2026-01-10", cat: "cafe", medio: "mp", hormiga: true },
@@ -418,4 +418,82 @@ test("teclear: borrar removes the last thing typed, + and its spaces at once", (
 
 test("teclear: caps a part at 10 digits", () => {
   assert.equal(teclear("1.234.567.890", "1"), "1.234.567.890");
+});
+
+test("cuotasPendientes: each month after this one with what is still owed", () => {
+  const g = [
+    { id: "a", monto: 3000, cuotas: 3, fecha: "2026-10-05", cat: "ropa", medio: "credito" },
+    { id: "b", monto: 1000, cuotas: 2, fecha: "2026-12-01", cat: "hogar", medio: "credito" },
+    { id: "c", monto: 500, cuotas: 1, fecha: "2026-11-01", cat: "cafe", medio: "credito" },
+  ];
+  assert.deepEqual(cuotasPendientes(g, new Date(2026, 9, 25)), [
+    { y: 2026, m: 10, total: 1000, compras: 1 },
+    { y: 2026, m: 11, total: 1500, compras: 2 },
+    { y: 2027, m: 0, total: 500, compras: 1 },
+  ]);
+});
+
+test("cuotasPendientes: finished purchases and plain expenses leave nothing", () => {
+  const g = [{ id: "a", monto: 3000, cuotas: 3, fecha: "2026-06-05" }, { id: "b", monto: 10, fecha: "2026-12-01" }];
+  assert.deepEqual(cuotasPendientes(g, new Date(2026, 9, 25)), []);
+});
+
+test("cuotasPendientes: the parts add up to the purchase, cents included", () => {
+  const g = [{ id: "a", monto: 1000, cuotas: 3, fecha: "2026-10-05" }];
+  const r = cuotasPendientes(g, new Date(2026, 9, 1));
+  assert.equal(Math.round((333.33 + r[0].total + r[1].total) * 100) / 100, 1000);
+});
+
+test("sugerirCategoria: the most used category for that note, ignoring case and accents", () => {
+  const g = [
+    { nota: "Café Martínez", cat: "cafe", fecha: "2026-10-01", ts: 1 },
+    { nota: "cafe martinez", cat: "cafe", fecha: "2026-10-02", ts: 2 },
+    { nota: "Cafe Martinez", cat: "comida", fecha: "2026-10-03", ts: 3 },
+  ];
+  assert.equal(sugerirCategoria(g, "CAFE MARTÍNEZ"), "cafe");
+});
+
+test("sugerirCategoria: a tie goes to the most recent", () => {
+  const g = [{ nota: "Coto", cat: "super", fecha: "2026-10-01", ts: 1 }, { nota: "coto", cat: "comida", fecha: "2026-10-05", ts: 2 }];
+  assert.equal(sugerirCategoria(g, "coto"), "comida");
+});
+
+test("sugerirCategoria: a prefix of 3 letters or more matches, shorter text does not", () => {
+  const g = [{ nota: "Netflix", cat: "suscripciones", fecha: "2026-10-01", ts: 1 }];
+  assert.equal(sugerirCategoria(g, "netf"), "suscripciones");
+  assert.equal(sugerirCategoria(g, "ne"), null);
+  assert.equal(sugerirCategoria(g, "spotify"), null);
+});
+
+test("sugerirCategoria: an exact match wins over prefix matches", () => {
+  const g = [{ nota: "Uber Eats", cat: "delivery", fecha: "2026-10-01", ts: 1 }, { nota: "Uber Eats", cat: "delivery", fecha: "2026-10-02", ts: 2 },
+             { nota: "Uber", cat: "transporte", fecha: "2026-10-03", ts: 3 }];
+  assert.equal(sugerirCategoria(g, "uber"), "transporte");
+});
+
+test("sugerirCategoria: never suggests a hidden or unknown category", () => {
+  const g = [{ nota: "Regalo", cat: "c-borrada", fecha: "2026-10-01", ts: 1 }];
+  assert.equal(sugerirCategoria(g, "regalo"), null);
+});
+
+test("notasUsadas: distinct notes, most used first, latest spelling", () => {
+  const g = [
+    { nota: "coto", fecha: "2026-10-01", ts: 1 }, { nota: "Coto", fecha: "2026-10-02", ts: 2 },
+    { nota: "Netflix", fecha: "2026-10-03", ts: 3 }, { nota: "", fecha: "2026-10-04", ts: 4 },
+  ];
+  assert.deepEqual(notasUsadas(g), ["Coto", "Netflix"]);
+});
+
+test("ordenarCategorias: most used in the last 90 days first, ties keep their order, Otros last", () => {
+  const cats = [["kiosco", "Kiosco", true], ["cafe", "Café", true], ["super", "Súper", false], ["otros", "Otros", false]];
+  const g = [
+    { cat: "super", fecha: "2026-10-01" }, { cat: "super", fecha: "2026-10-02" }, { cat: "otros", fecha: "2026-10-03" },
+    { cat: "otros", fecha: "2026-10-04" }, { cat: "otros", fecha: "2026-10-05" }, { cat: "cafe", fecha: "2026-01-01" },
+  ];
+  assert.deepEqual(ordenarCategorias(cats, g, new Date(2026, 9, 25)).map(c => c[0]), ["super", "kiosco", "cafe", "otros"]);
+});
+
+test("sugerirCategoria: exact notes in hidden categories do not block the prefix matches", () => {
+  const g = [{ nota: "Uber", cat: "c-oculta", fecha: "2026-10-01", ts: 1 }, { nota: "Uber Eats", cat: "delivery", fecha: "2026-10-02", ts: 2 }];
+  assert.equal(sugerirCategoria(g, "uber"), "delivery");
 });

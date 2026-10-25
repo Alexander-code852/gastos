@@ -389,3 +389,55 @@ export function teclear(valor, tecla) {
     return e.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + (d != null ? "," + d : "");
   }).join(" + ");
 }
+
+// Installments still to pay in each month after the current one, until the last purchase is paid off.
+export function cuotasPendientes(gastos, hoy = new Date()) {
+  const con = gastos.filter(g => g.cuotas > 1);
+  const fin = Math.max(-1, ...con.map(g => { const [y, m] = g.fecha.split("-").map(Number); return y * 12 + m - 1 + g.cuotas - 1; }));
+  const out = [];
+  for (let t = hoy.getFullYear() * 12 + hoy.getMonth() + 1; t <= fin; t++) {
+    const y = Math.floor(t / 12), m = t % 12, movs = movimientosDelMes(con, y, m);
+    if (movs.length) out.push({ y, m, total: round2(movs.reduce((s, g) => s + g.monto, 0)), compras: movs.length });
+  }
+  return out;
+}
+
+// Category of earlier expenses with this note: exact notes first, else notes starting with it (3+ letters).
+// The most used wins, a tie goes to the latest; hidden or unknown categories are never suggested.
+export function sugerirCategoria(gastos, nota) {
+  const q = plano(nota).trim();
+  if (!q) return null;
+  const visible = new Set(CATS.map(([id]) => id));
+  const elegir = lista => {
+    const c = new Map();
+    for (const g of lista) {
+      if (!visible.has(g.cat)) continue;
+      const x = c.get(g.cat) ?? { n: 0, ult: "" }, k = `${g.fecha}|${String(g.ts).padStart(15, "0")}`;
+      c.set(g.cat, { n: x.n + 1, ult: k > x.ult ? k : x.ult });
+    }
+    return [...c].sort((a, b) => b[1].n - a[1].n || b[1].ult.localeCompare(a[1].ult))[0]?.[0] ?? null;
+  };
+  const exactas = gastos.filter(g => visible.has(g.cat) && plano(g.nota).trim() === q);
+  if (exactas.length) return elegir(exactas);
+  return q.length >= 3 ? elegir(gastos.filter(g => plano(g.nota).trim().startsWith(q))) : null;
+}
+
+// Notes typed before, for suggestions while typing: one per spelling-insensitive note, most used first, latest spelling.
+export function notasUsadas(gastos, n = 50) {
+  const m = new Map();
+  for (const g of [...gastos].sort((a, b) => a.fecha.localeCompare(b.fecha) || a.ts - b.ts)) {
+    const nota = String(g.nota ?? "").trim(), k = plano(nota);
+    if (!k) continue;
+    m.set(k, { nota, veces: (m.get(k)?.veces ?? 0) + 1 });
+  }
+  return [...m.values()].sort((a, b) => b.veces - a.veces).slice(0, n).map(x => x.nota);
+}
+
+// Picker order: most used in the last 90 days first; ties keep their order and Otros stays last.
+export function ordenarCategorias(cats, gastos, hoy = new Date()) {
+  const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 90);
+  const desde = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const n = {};
+  for (const g of gastos) if (g.fecha >= desde) n[g.cat] = (n[g.cat] || 0) + 1;
+  return cats.map((c, i) => [c, i]).sort(([a, i], [b, j]) => (a[0] === "otros") - (b[0] === "otros") || (n[b[0]] || 0) - (n[a[0]] || 0) || i - j).map(([c]) => c);
+}
