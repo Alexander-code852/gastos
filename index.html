@@ -82,6 +82,28 @@
     <div class="budgets" id="budgets"></div>
   </section>
 
+  <!-- Meses -->
+  <section class="tab" id="tab-meses" data-tab="meses" hidden>
+    <div id="rango" class="chips small" role="radiogroup" aria-label="Cuántos meses ver"></div>
+    <div class="stats">
+      <div class="stat"><span class="lbl">Promedio por mes</span><span class="stat-val" id="mPromedio">—</span><span class="sub" id="mPromedioSub"></span></div>
+      <div class="stat"><span class="lbl">Mes más alto</span><span class="stat-val" id="mMax">—</span><span class="sub" id="mMaxSub"></span></div>
+    </div>
+    <section class="chart-card">
+      <h2>Gastos por mes</h2>
+      <div class="legend" id="legend"></div>
+      <div class="chart" id="chart"></div>
+      <details class="as-table">
+        <summary>Ver como tabla</summary>
+        <div class="table-wrap"><table id="mesesTabla"><thead><tr><th scope="col">Mes</th><th scope="col">Total</th><th scope="col">Hormiga</th></tr></thead><tbody></tbody></table></div>
+      </details>
+    </section>
+    <section>
+      <h2>Por categoría, contra el mes anterior</h2>
+      <div class="table-wrap"><table class="cmp" id="cmpTabla"></table></div>
+    </section>
+  </section>
+
   <!-- Fijos -->
   <section class="tab" id="tab-fijos" data-tab="fijos" hidden>
     <div class="fijos-total"><span class="lbl">Tus gastos fijos por mes</span><span class="big" id="fijosTotal">$ 0</span></div>
@@ -119,6 +141,7 @@
 <nav class="tabbar" aria-label="Secciones">
   <button type="button" data-go="gastos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Gastos</button>
   <button type="button" data-go="presupuestos"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4v8l6 4"/></svg>Presupuestos</button>
+  <button type="button" data-go="meses"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V5M19 20v-7"/></svg>Meses</button>
   <button type="button" data-go="fijos"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Fijos</button>
   <button type="button" data-go="copia"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Copia</button>
 </nav>

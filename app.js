@@ -1,8 +1,10 @@
 import { CATS, CAT, MEDIOS, MEDIO, parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
-  estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial } from "./logic.js";
+  estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial,
+  serieMensual, compararCategorias, escalaY } from "./logic.js";
 
 const KEYS = { gastos: "gastos.v1", presupuestos: "gastos.presupuestos", fijos: "gastos.fijos" };
-const BACKUP_KEY = "gastos.ultimaCopia", TAB_KEY = "gastos.tab";
+const BACKUP_KEY = "gastos.ultimaCopia", TAB_KEY = "gastos.tab", RANGO_KEY = "gastos.rango";
+const TABS = ["gastos", "presupuestos", "meses", "fijos", "copia"];
 const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 });
 const fmt = n => money.format(n);
 const plainFmt = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 });
@@ -320,6 +322,164 @@ function guardarLimite(key, raw, label) {
   if (commit({ presupuestos: p })) say(v == null ? `Quitaste el límite de ${label}.` : `Límite de ${label}: ${fmt(v)} por mes.`);
 }
 
+/* ---------- Meses ---------- */
+
+const SVGNS = "http://www.w3.org/2000/svg";
+const svg = (tag, attrs = {}) => {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  return e;
+};
+const compact = new Intl.NumberFormat("es-AR", { notation: "compact", maximumFractionDigits: 1 });
+const mesCorto = (y, m) => new Intl.DateTimeFormat("es-AR", { month: "short" }).format(new Date(y, m, 1)).replace(".", "");
+let rango = (() => { try { return Number(localStorage.getItem(RANGO_KEY)) === 12 ? 12 : 6; } catch { return 6; } })();
+
+// Column with a 4px rounded data-end and a square base.
+function columnPath(x, w, top, bottom, rounded) {
+  const r = rounded ? Math.min(4, w / 2, bottom - top) : 0;
+  return `M${x},${bottom}V${top + r}Q${x},${top} ${x + r},${top}H${x + w - r}Q${x + w},${top} ${x + w},${top + r}V${bottom}Z`;
+}
+
+function drawChart(serie) {
+  const box = $("chart");
+  const W = Math.max(280, box.clientWidth || 320), H = 228;
+  const pad = { l: 44, r: 6, t: 26, b: 24 };
+  const limite = S.presupuestos.total;
+  const { max, ticks } = escalaY(Math.max(...serie.map(s => s.total), limite || 0));
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const yOf = v => pad.t + ph - (v / max) * ph;
+  const band = pw / serie.length, bw = Math.min(24, band * 0.62);
+  const root = svg("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "group", "aria-label": `Gastos de los últimos ${serie.length} meses` });
+
+  for (const t of ticks) {
+    root.append(svg("line", { x1: pad.l, x2: W - pad.r, y1: yOf(t), y2: yOf(t), class: "grid" }));
+    const lab = svg("text", { x: pad.l - 6, y: yOf(t) + 4, "text-anchor": "end", class: "axis" });
+    lab.textContent = t ? compact.format(t) : "0";
+    root.append(lab);
+  }
+
+  const cols = serie.map((s, i) => {
+    const cx = pad.l + band * i + band / 2, x = cx - bw / 2, base = yOf(0);
+    const resto = Math.round((s.total - s.hormiga) * 100) / 100;
+    const g = svg("g", { class: "col" });
+    if (s.hormiga > 0) g.append(svg("path", { d: columnPath(x, bw, yOf(s.hormiga), base, resto <= 0), class: "m-hormiga" }));
+    if (resto > 0) {
+      const bottom = s.hormiga > 0 ? yOf(s.hormiga) - 2 : base; // 2px surface gap between the stacked segments
+      const top = yOf(s.total);
+      if (bottom - top > 0.5) g.append(svg("path", { d: columnPath(x, bw, top, bottom, true), class: "m-resto" }));
+    }
+    const actual = i === serie.length - 1;
+    const xl = svg("text", { x: cx, y: H - 7, "text-anchor": "middle", class: "axis" + (actual ? " cur" : "") });
+    xl.textContent = mesCorto(s.y, s.m);
+    g.append(xl);
+    if (actual && s.total > 0) {
+      const v = svg("text", { x: cx, y: yOf(s.total) - 6, "text-anchor": "middle", class: "val" });
+      v.textContent = compact.format(s.total);
+      g.append(v);
+    }
+    // The whole band is the hit target, much bigger than the column itself.
+    const hit = svg("rect", { x: pad.l + band * i, y: 0, width: band, height: H, class: "hit", tabindex: "0",
+      "aria-label": `${monthFmt.format(new Date(s.y, s.m, 1))}: total ${fmt(s.total)}, hormiga ${fmt(s.hormiga)}` });
+    hit.addEventListener("pointerenter", () => showTip(i));
+    hit.addEventListener("pointerdown", () => showTip(i));
+    hit.addEventListener("focus", () => showTip(i));
+    hit.addEventListener("blur", hideTip);
+    g.append(hit);
+    root.append(g);
+    return { g, cx, top: yOf(s.total), s, resto };
+  });
+
+  // The limit's value lives in the legend: an in-plot label collides with tall columns.
+  if (limite) root.insertBefore(svg("line", { x1: pad.l, x2: W - pad.r, y1: yOf(limite), y2: yOf(limite), class: "limit" }), root.querySelector(".col"));
+  root.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") hideTip(); });
+
+  const tip = el("div", "tip");
+  tip.hidden = true;
+  tip.setAttribute("role", "status");
+  function showTip(i) {
+    const c = cols[i];
+    for (const o of cols) o.g.classList.toggle("dim", o !== c);
+    const row = (cls, label, v) => {
+      const r = el("div", "tip-row");
+      r.append(el("span", "key " + cls), el("span", null, label), el("strong", "num", fmt(v)));
+      return r;
+    };
+    tip.replaceChildren(el("div", "tip-h", monthFmt.format(new Date(c.s.y, c.s.m, 1))), el("strong", "tip-total", fmt(c.s.total)),
+      row("k-hormiga", "Hormiga", c.s.hormiga), row("k-resto", "Resto", c.resto));
+    tip.hidden = false;
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = `${Math.min(Math.max(c.cx - w / 2, 0), W - w)}px`;
+    tip.style.top = `${Math.max(0, c.top - h - 10)}px`;
+  }
+  function hideTip() {
+    tip.hidden = true;
+    for (const o of cols) o.g.classList.remove("dim");
+  }
+  hideChartTip = hideTip;
+  box.replaceChildren(root, tip);
+}
+let hideChartTip = () => {};
+document.addEventListener("pointerdown", e => { if (!e.target.closest?.(".chart")) hideChartTip(); });
+
+function renderMeses() {
+  chips($("rango"), [[6, "6 meses"], [12, "12 meses"]], rango, n => {
+    rango = n;
+    try { localStorage.setItem(RANGO_KEY, String(n)); } catch {}
+    render();
+  });
+  const serie = serieMensual(S.gastos, view.y, view.m, rango);
+  const desde = serie.findIndex(s => s.total > 0);
+  const conDatos = desde < 0 ? [] : serie.slice(desde);
+  if (conDatos.length) {
+    const prom = conDatos.reduce((a, s) => a + s.total, 0) / conDatos.length;
+    const top = conDatos.reduce((a, s) => s.total > a.total ? s : a);
+    $("mPromedio").textContent = fmt(Math.round(prom));
+    $("mPromedioSub").textContent = conDatos.length === 1 ? "en 1 mes con gastos" : `en ${conDatos.length} meses`;
+    $("mMax").textContent = fmt(top.total);
+    $("mMaxSub").textContent = monthFmt.format(new Date(top.y, top.m, 1));
+  } else {
+    $("mPromedio").textContent = $("mMax").textContent = "—";
+    $("mPromedioSub").textContent = "Sin gastos en este rango";
+    $("mMaxSub").textContent = "";
+  }
+
+  const legend = [["k-hormiga", "Hormiga"], ["k-resto", "Resto"]];
+  if (S.presupuestos.total) legend.push(["k-limit", `Límite ${fmt(S.presupuestos.total)}`]);
+  $("legend").replaceChildren(...legend.map(([cls, label]) => { const s = el("span", "leg"); s.append(el("span", "key " + cls), label); return s; }));
+  drawChart(serie);
+
+  $("mesesTabla").tBodies[0].replaceChildren(...[...serie].reverse().map(s => {
+    const tr = el("tr");
+    tr.append(el("th", null, monthFmt.format(new Date(s.y, s.m, 1))), el("td", "num", fmt(s.total)), el("td", "num", fmt(s.hormiga)));
+    tr.firstChild.scope = "row";
+    return tr;
+  }));
+
+  const rows = compararCategorias(S.gastos, view.y, view.m);
+  const prev = new Date(view.y, view.m - 1, 1);
+  const thead = el("thead"), hr = el("tr");
+  for (const h of ["Categoría", cap(mesCorto(view.y, view.m)), cap(mesCorto(prev.getFullYear(), prev.getMonth())), "Diferencia"]) {
+    const th = el("th", null, h); th.scope = "col"; hr.append(th);
+  }
+  thead.append(hr);
+  const tbody = el("tbody");
+  if (!rows.length) {
+    const tr = el("tr"), td = el("td", "empty", "Sin gastos en estos dos meses.");
+    td.colSpan = 4; tr.append(td); tbody.append(tr);
+  }
+  for (const r of rows) {
+    const tr = el("tr");
+    const name = el("th", null, CAT[r.cat]?.label ?? r.cat); name.scope = "row";
+    const diff = r.delta > 0 ? `▲ ${fmt(r.delta)}` : r.delta < 0 ? `▼ ${fmt(-r.delta)}` : "= igual";
+    tr.append(name, el("td", "num", fmt(r.actual)), el("td", "num", fmt(r.anterior)), el("td", "num " + (r.delta > 0 ? "up" : r.delta < 0 ? "down" : ""), diff));
+    tbody.append(tr);
+  }
+  $("cmpTabla").replaceChildren(thead, tbody);
+}
+
+let resizeTimer = 0;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (tab === "meses") render(); }, 150); });
+
 /* ---------- Fijos ---------- */
 
 function fillSelect(sel, items) {
@@ -477,12 +637,13 @@ $("importar").addEventListener("change", async ev => {
 /* ---------- render ---------- */
 
 function render() {
-  const conMes = tab === "gastos" || tab === "presupuestos";
+  const conMes = tab === "gastos" || tab === "presupuestos" || tab === "meses";
   // visibility keeps the title centered while the arrows are not needed
   $("prev").style.visibility = $("next").style.visibility = conMes ? "" : "hidden";
   $("mes").textContent = conMes ? monthFmt.format(new Date(view.y, view.m, 1))
     : tab === "fijos" ? "Gastos fijos" : "Copia de seguridad";
-  if (conMes) {
+  if (tab === "meses") renderMeses();
+  else if (conMes) {
     const movs = movimientosDelMes(S.gastos, view.y, view.m);
     const r = resumen(movs, view.y, view.m);
     if (tab === "gastos") renderGastos(movs, r); else renderPresupuestos(r);
@@ -498,7 +659,7 @@ $("fecha").value = fechaAuto;
 $("esHormiga").checked = CAT[cat].h;
 renderForm();
 resetFijoForm();
-showTab(["gastos", "presupuestos", "fijos", "copia"].includes(tab) ? tab : "gastos");
+showTab(TABS.includes(tab) ? tab : "gastos");
 const creados = aplicarFijos();
 if (creados) say(creados === 1 ? "Se cargó 1 gasto fijo." : `Se cargaron ${creados} gastos fijos.`);
 // The installed app can stay open for days; check for due fixed expenses whenever it comes back to the screen.
