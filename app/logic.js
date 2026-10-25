@@ -127,6 +127,7 @@ export function leerBackup(obj) {
       ts: Number.isFinite(g.ts) ? g.ts : Date.now(),
     };
     if (typeof g.fijoId === "string" && g.fijoId) out.fijoId = g.fijoId;
+    if (positivo(g.usd) && positivo(g.cotizacion) && CASAS_DOLAR.some(([k]) => k === g.tipoDolar)) Object.assign(out, { usd: g.usd, cotizacion: g.cotizacion, tipoDolar: g.tipoDolar });
     return out;
   });
 
@@ -293,13 +294,13 @@ export function aCSV(gastos, ingresos = []) {
 }
 
 // Quick-add buttons: what was entered at least twice in the last 60 days with the same category, amount and payment.
-// Fixed expenses and installment purchases are left out: they are not typed by hand.
+// Fixed expenses and installment purchases are left out: they are not typed by hand. Dollar ones too: their pesos change with the rate.
 export function frecuentes(gastos, hoy = new Date(), n = 4) {
   const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 60);
   const desde = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const grupos = new Map();
   for (const g of gastos) {
-    if (g.fijoId || g.cuotas > 1 || g.fecha < desde) continue;
+    if (g.fijoId || g.cuotas > 1 || g.usd || g.fecha < desde) continue;
     const k = `${g.cat}|${g.monto}|${g.medio}`;
     const x = grupos.get(k);
     if (!x) grupos.set(k, { cat: g.cat, monto: g.monto, medio: g.medio, hormiga: !!g.hormiga, veces: 1, ultima: g.fecha });
@@ -440,4 +441,58 @@ export function ordenarCategorias(cats, gastos, hoy = new Date()) {
   const n = {};
   for (const g of gastos) if (g.fecha >= desde) n[g.cat] = (n[g.cat] || 0) + 1;
   return cats.map((c, i) => [c, i]).sort(([a, i], [b, j]) => (a[0] === "otros") - (b[0] === "otros") || (n[b[0]] || 0) - (n[a[0]] || 0) || i - j).map(([c]) => c);
+}
+
+// Fixed expenses and installments are paid on one day and would make day 1 look like overspending, so pace counts only the rest.
+export const gastoVariable = movs => round2(movs.filter(g => !g.fijoId && !g.cuota).reduce((s, g) => s + g.monto, 0));
+
+// What variable spending should reach by month's end: the budget minus this month's fixed expenses, installments
+// and active fixed ones not generated yet; with no budget, the average of the last 3 months with variable spending.
+export function referenciaRitmo(gastos, fijos, y, m, presupuesto) {
+  const movs = movimientosDelMes(gastos, y, m);
+  if (positivo(presupuesto)) {
+    const k = mesKey(y, m);
+    const pendientes = fijos.filter(f => f.activo && f.ultimoMes < k).reduce((s, f) => s + f.monto, 0);
+    const ref = round2(presupuesto - (movs.reduce((s, g) => s + g.monto, 0) - gastoVariable(movs)) - pendientes);
+    return ref > 0 ? ref : null;
+  }
+  const meses = [];
+  for (let i = 1; i <= 12 && meses.length < 3; i++) {
+    const d = new Date(y, m - i, 1), v = gastoVariable(movimientosDelMes(gastos, d.getFullYear(), d.getMonth()));
+    if (v > 0) meses.push(v);
+  }
+  return meses.length ? round2(meses.reduce((a, b) => a + b, 0) / meses.length) : null;
+}
+
+// Share of the reference used against share of the month gone, for the current month only; 10 points either way is on pace.
+export function ritmoMes(gastado, referencia, y, m, hoy = new Date()) {
+  if (!positivo(referencia) || y !== hoy.getFullYear() || m !== hoy.getMonth()) return null;
+  const dias = new Date(y, m + 1, 0).getDate(), dia = hoy.getDate(), tiempo = dia / dias, uso = gastado / referencia;
+  // In the first 3 days one supermarket trip would read as overspending, so it always counts as on pace.
+  const estado = dia <= 3 ? "justo" : uso > tiempo + 0.1 ? "rapido" : uso < tiempo - 0.1 ? "holgado" : "justo";
+  return { dia, dias, tiempo, uso, estado };
+}
+
+export const CASAS_DOLAR = [["bolsa", "MEP"], ["blue", "Blue"], ["oficial", "Oficial"], ["tarjeta", "Tarjeta"]];
+
+// DolarApi's list ([{ casa, venta, fechaActualizacion }]) reduced to the selling price of the rates the app offers.
+export function leerDolares(lista) {
+  if (!Array.isArray(lista)) throw new Error("No llegaron cotizaciones.");
+  const out = {};
+  for (const x of lista) {
+    if (!CASAS_DOLAR.some(([c]) => c === x?.casa)) continue;
+    if (!positivo(x.venta)) continue; // one broken rate should not throw away the others
+    out[x.casa] = { venta: x.venta, fecha: String(x.fechaActualizacion ?? "") };
+  }
+  if (!Object.keys(out).length) throw new Error("No llegaron cotizaciones.");
+  return out;
+}
+
+// The month that just ended against the one before: total, % change, the category that grew most, hormiga.
+export function cierreMes(gastos, y, m) {
+  const [s] = serieMensual(gastos, y, m, 1);
+  if (!s.total) return null;
+  const [prev] = serieMensual(gastos, y, m - 1, 1);
+  const sube = compararCategorias(gastos, y, m).reduce((a, r) => r.delta > 0 && (!a || r.delta > a.delta) ? { cat: r.cat, delta: r.delta } : a, null);
+  return { total: s.total, anterior: prev.total, pct: prev.total ? Math.round((s.total - prev.total) / prev.total * 100) : null, hormiga: s.hormiga, sube };
 }

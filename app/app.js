@@ -1,10 +1,13 @@
 import { CATS, CAT, leerCategorias, usarCategorias, MEDIOS, MEDIO, parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
   estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial,
   serieMensual, compararCategorias, escalaY, frecuentes, buscar, leerIPC, aPesosDe, repetirIngresos,
-  evaluarMonto, gastoPorDia, teclear, cuotasPendientes, sugerirCategoria, notasUsadas, ordenarCategorias } from "./logic.js";
+  evaluarMonto, gastoPorDia, teclear, cuotasPendientes, sugerirCategoria, notasUsadas, ordenarCategorias,
+  referenciaRitmo, ritmoMes, gastoVariable, leerDolares, CASAS_DOLAR, cierreMes } from "./logic.js";
 
 const KEYS = { gastos: "gastos.v1", presupuestos: "gastos.presupuestos", fijos: "gastos.fijos", ingresos: "gastos.ingresos", categorias: "gastos.categorias" };
 const INSTALAR_KEY = "gastos.instalarCerrado", BACKUP_KEY = "gastos.ultimaCopia", TAB_KEY = "gastos.tab", RANGO_KEY = "gastos.rango", AJUSTE_KEY = "gastos.ajuste", IPC_KEY = "gastos.ipc";
+const DOLAR_KEY = "gastos.dolares", CASA_KEY = "gastos.casa", CIERRE_KEY = "gastos.cierreVisto";
+const DOLAR_URL = "https://dolarapi.com/v1/dolares";
 const IPC_URL = "https://api.argentinadatos.com/v1/finanzas/indices/inflacion";
 const TABS = ["gastos", "presupuestos", "meses", "fijos", "copia"];
 const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 });
@@ -37,6 +40,9 @@ let modo = "gasto", fechaOtro = false; // the + sheet: what it is loading, and w
 let catManual = false; // a category tapped by hand in this sheet is never replaced by the note's suggestion
 let antesAuto = null; // category and hormiga box before the note's suggestion, restored if the note stops matching
 let hormigaManual = false; // a hormiga box ticked by hand is never changed by a suggestion
+// Dollar expenses: the rate chosen and whether it was typed by hand (then a fresh quote never replaces it).
+let moneda = "ARS", cotizManual = false;
+let casa = (() => { try { return localStorage.getItem(CASA_KEY) || "bolsa"; } catch { return "bolsa"; } })();
 
 // Writes every changed key first and only then swaps memory; if any write fails, the earlier ones are rolled back.
 function commit(changes) {
@@ -226,10 +232,29 @@ function renderForm() {
   });
   $("fecha").hidden = sel !== "otro";
 
-  const n = Number($("cuotas").value), monto = evaluarMonto($("monto").value);
+  if (!gasto) moneda = "ARS"; // income is always in pesos
+  const usd = moneda === "USD";
+  $("moneda").disabled = !gasto; // income is pesos only: the sign stays, without the switch
+  $("moneda").textContent = usd ? "US$" : "$";
+  $("moneda").setAttribute("aria-label", !gasto ? "Moneda: pesos" : usd ? "Moneda: dólares. Tocá para cargar en pesos" : "Moneda: pesos. Tocá para cargar en dólares");
+  $("moneda").setAttribute("aria-pressed", String(usd));
+  $("monto").setAttribute("aria-label", usd ? "Monto en dólares" : "Monto en pesos");
+  $("form").classList.toggle("usd", usd);
+  $("usdRow").hidden = !usd;
+  if (usd) {
+    chips($("casas"), CASAS_DOLAR.map(([id, label]) => [id, dolares?.[id] ? `${label} ${sinCentavos(dolares[id].venta)}` : label]), casa, id => {
+      casa = id; cotizManual = false;
+      try { localStorage.setItem(CASA_KEY, id); } catch {}
+      renderForm();
+    });
+    if (!cotizManual && document.activeElement !== $("cotiz")) $("cotiz").value = dolares?.[casa] ? inputFmt(dolares[casa].venta) : "";
+  }
+
+  const n = Number($("cuotas").value), monto = enPesos();
   $("cuotaInfo").textContent = n > 1 && monto > 0 ? `${n} cuotas de ${fmt(parteCuota(monto, n, 0))}` : "";
-  $("montoCalc").textContent = $("monto").value.includes("+") && monto > 0 ? `= ${fmt(monto)}` : "";
-  $("guardar").textContent = editando ? "Guardar cambios" : `Agregar ${modo}${monto > 0 ? ` ${sinCentavos(monto)}` : ""}`;
+  const suma = $("monto").value.includes("+") ? evaluarMonto($("monto").value) : NaN;
+  $("montoCalc").textContent = usd ? (monto > 0 ? `= ${fmt(monto)}` : "") : suma > 0 ? `= ${fmt(suma)}` : "";
+  $("guardar").textContent = (editando ? "Guardar cambios" : `Agregar ${modo}`) + (monto > 0 ? ` ${sinCentavos(monto)}` : "");
   const g = editingId && S.gastos.find(x => x.id === editingId);
   $("formTitle").textContent = g ? (g.cuotas > 1 ? `Editar compra en ${g.cuotas} cuotas (monto total)` : "Editar gasto")
     : editingIngreso ? "Editar ingreso" : gasto ? "Nuevo gasto" : "Nuevo ingreso";
@@ -270,6 +295,8 @@ $("nota").addEventListener("input", () => {
 });
 function renderGastos(movs, r) {
   countTo($("total"), r.total);
+  renderRitmo(movs);
+  renderCierre();
   $("total").style.setProperty("--n", fmt(r.total).length);
   countTo($("hTotal"), r.hormiga);
   $("hPct").textContent = r.total ? `${Math.round(r.hormiga / r.total * 100)}% del total` : "";
@@ -320,7 +347,8 @@ function itemRow(g, conFecha = false) {
   if (g.hormiga) what.append(el("span", "tag", "hormiga"));
   if (g.fijoId) what.append(el("span", "tag tag-fijo", "fijo"));
   const cuotas = g.cuota ? `cuota ${g.cuota}/${g.cuotas}` : conFecha && g.cuotas > 1 ? `${g.cuotas} cuotas` : "";
-  const meta = [conFecha ? dayFmt.format(new Date(g.fecha + "T12:00")) : "", MEDIO[g.medio], cuotas, g.nota].filter(Boolean).join(" · ");
+  const dolar = g.usd ? `US$ ${plainFmt.format(g.usd)} a ${sinCentavos(g.cotizacion)}` : "";
+  const meta = [conFecha ? dayFmt.format(new Date(g.fecha + "T12:00")) : "", MEDIO[g.medio], cuotas, dolar, g.nota].filter(Boolean).join(" · ");
   if (meta) what.append(el("span", "meta", meta));
   edit.append(catIcon(g.cat), what, el("span", "num", fmt(g.monto)));
   edit.setAttribute("aria-label", `Editar ${CAT[g.cat]?.label ?? g.cat} ${fmt(g.monto)}`);
@@ -425,6 +453,45 @@ function renderCuotas() {
   const ultimo = r.at(-1);
   if (r.length > 6) filas.push(el("p", "sub", `Y ${r.length - 6} meses más, hasta ${monthFmt.format(new Date(ultimo.y, ultimo.m, 1)).toLowerCase()}.`));
   $("cuotasLista").replaceChildren(...filas);
+}
+
+// Day-to-day spending against the share of the month gone: the bar's fill is what you used, the tick is today.
+const RITMO = { rapido: ["cerca", "Vas rápido"], justo: ["bien", "Vas al ritmo"], holgado: ["bien", "Vas holgado"] };
+function renderRitmo(movs) {
+  const ref = referenciaRitmo(S.gastos, S.fijos, view.y, view.m, S.presupuestos.total);
+  const gastado = gastoVariable(movs), rt = ritmoMes(gastado, ref, view.y, view.m);
+  $("ritmo").hidden = !rt;
+  if (!rt) return;
+  const track = el("div", "track"), fill = el("div", "fill"), tick = el("span", "hoy-tick");
+  fill.style.width = `${Math.min(100, rt.uso * 100)}%`;
+  tick.style.left = `${rt.tiempo * 100}%`;
+  track.append(fill, tick);
+  const [cls, txt] = RITMO[rt.estado], line = el("div", "budget-line");
+  line.append(el("span", "pill " + cls, txt), el("span", "sub",
+    `Día ${rt.dia} de ${rt.dias}: llevás ${pesos(gastado)} de ${pesos(ref)} en el día a día (${Math.round(rt.uso * 100)} %)`
+    + (S.presupuestos.total ? "" : ", comparado con tu promedio")));
+  $("ritmo").className = "ritmo is-" + rt.estado; // "is-" because .rapido already styles the quick-add buttons
+  $("ritmo").replaceChildren(el("span", "lbl", "Ritmo del mes"), track, line);
+}
+
+// The first week of a month shows how the last one went, until it is closed.
+function renderCierre() {
+  const hoy = new Date(), prev = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1), k = ym(prev.getFullYear(), prev.getMonth());
+  const actual = view.y === hoy.getFullYear() && view.m === hoy.getMonth();
+  const visto = (() => { try { return localStorage.getItem(CIERRE_KEY) === k; } catch { return false; } })();
+  const c = actual && hoy.getDate() <= 7 && !visto ? cierreMes(S.gastos, prev.getFullYear(), prev.getMonth()) : null;
+  $("cierre").hidden = !c;
+  if (!c) return;
+  const mes = monthFmt.format(prev).split(" ")[0].toLowerCase(), antes = new Date(prev.getFullYear(), prev.getMonth() - 1, 1);
+  $("cierreH").textContent = `Así cerró ${mes}`;
+  $("cierreTotal").textContent = pesos(c.total);
+  const datos = [];
+  if (c.pct != null) datos.push(`${c.pct > 0 ? "▲" : c.pct < 0 ? "▼" : "="} ${Math.abs(c.pct)} % contra ${monthFmt.format(antes).split(" ")[0].toLowerCase()}`);
+  if (c.sube) datos.push(`Lo que más subió: ${CAT[c.sube.cat]?.label ?? c.sube.cat} (+${pesos(c.sube.delta)})`);
+  datos.push(`En gastos hormiga: ${pesos(c.hormiga)}`);
+  $("cierreDatos").replaceChildren(...datos.map(t => el("li", null, t)));
+  $("cierreX").onclick = () => { try { localStorage.setItem(CIERRE_KEY, k); } catch {} $("cierre").hidden = true; $("mes").focus(); }; // focus was on the hidden ×
+  $("cierreVer").onclick = () => { view = { y: prev.getFullYear(), m: prev.getMonth() }; showTab("meses"); };
 }
 
 function renderRapidos() {
@@ -726,8 +793,10 @@ function renderSheet() {
 
 function resetForm() {
   editingId = editingIngreso = null;
-  fechaOtro = catManual = hormigaManual = false;
+  fechaOtro = catManual = hormigaManual = cotizManual = false;
   antesAuto = null;
+  moneda = "ARS";
+  try { casa = localStorage.getItem(CASA_KEY) || "bolsa"; } catch { casa = "bolsa"; } // an edit may have switched it
   $("catAuto").textContent = "";
   $("form").classList.remove("editing");
   $("monto").value = ""; $("nota").value = ""; $("cuotas").value = "1";
@@ -742,7 +811,8 @@ function startEdit(id) {
   resetForm();
   editingId = id; modo = "gasto";
   cat = g.cat; medio = g.medio;
-  $("monto").value = inputFmt(g.monto);
+  $("monto").value = inputFmt(g.usd ?? g.monto);
+  if (g.usd) { moneda = "USD"; casa = g.tipoDolar; cotizManual = true; $("cotiz").value = inputFmt(g.cotizacion); cargarDolares(); } // keep the rate it was saved with
   $("nota").value = g.nota || "";
   $("fecha").value = g.fecha;
   $("cuotas").value = String(g.cuotas || 1);
@@ -775,10 +845,57 @@ function avisos(antes, despues, gCat) {
 
 // What the sheet holds as an expense, or null after pointing at a bad amount.
 function gastoDelForm(fecha) {
-  const monto = evaluarMonto($("monto").value);
+  const monto = enPesos();
+  if (moneda === "USD" && evaluarMonto($("monto").value) > 0 && isNaN(parseMonto($("cotiz").value))) {
+    say("Escribí la cotización del dólar, por ejemplo 1.565.", "err"); $("cotiz").focus(); return null;
+  }
   if (isNaN(monto)) { $("formErr").hidden = false; $("monto").focus(); return null; }
+  // The dollar fields are always set, so editing a dollar expense back to pesos clears them (undefined is not saved).
+  const usd = moneda === "USD" ? { usd: evaluarMonto($("monto").value), cotizacion: parseMonto($("cotiz").value), tipoDolar: casa }
+    : { usd: undefined, cotizacion: undefined, tipoDolar: undefined };
   return { monto, cat, medio, cuotas: medio === "credito" ? Number($("cuotas").value) : 1,
-    nota: $("nota").value.trim(), fecha, hormiga: $("esHormiga").checked };
+    nota: $("nota").value.trim(), fecha, hormiga: $("esHormiga").checked, ...usd };
+}
+
+// The amount in pesos: typed in pesos, or dollars times the rate.
+function enPesos() {
+  const v = evaluarMonto($("monto").value);
+  if (moneda !== "USD") return v;
+  const cot = parseMonto($("cotiz").value);
+  return v > 0 && cot > 0 ? Math.round(v * cot * 100) / 100 : NaN;
+}
+
+// Switching keeps the amount's meaning: dollars become their pesos; pesos are cleared, since the rate may not be known yet.
+$("moneda").onclick = () => {
+  if (moneda === "USD") {
+    const p = enPesos();
+    moneda = "ARS";
+    if (p > 0) $("monto").value = inputFmt(p);
+  } else {
+    moneda = "USD";
+    $("monto").value = "";
+    cargarDolares();
+  }
+  renderForm();
+};
+$("cotiz").addEventListener("blur", renderForm); // a quote that arrived while typing fills the field afterwards
+$("cotiz").addEventListener("input", () => { cotizManual = true; renderForm(); });
+
+// Dollar quotes: refreshed at most once an hour; offline, the last ones saved (or a rate typed by hand) are used.
+let dolares = (() => { try { return leerDolares(read(DOLAR_KEY, null)?.data); } catch { return null; } })();
+async function cargarDolares() {
+  const cache = read(DOLAR_KEY, null);
+  if (dolares && cache && Date.now() - cache.ts < 36e5) return;
+  try {
+    const res = await fetch(DOLAR_URL);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    dolares = leerDolares(data);
+    try { localStorage.setItem(DOLAR_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
+  } catch {
+    if (!dolares) say("No se pudo bajar la cotización. Escribila a mano.", "err");
+  }
+  if ($("nuevo").open) renderForm();
 }
 
 $("form").addEventListener("submit", ev => {
@@ -798,6 +915,8 @@ $("form").addEventListener("submit", ev => {
 
 // Copies the expense being edited as a new one dated today; the original stays as it was.
 $("repetirHoy").onclick = () => {
+  // A copy dated today uses today's quote, not the one of the original date (when there is one).
+  if (moneda === "USD" && dolares?.[casa]) { cotizManual = false; renderForm(); }
   const data = gastoDelForm(today());
   if (!data || !guardarGasto(data, null, { gastos: S.gastos })) return;
   resetForm();

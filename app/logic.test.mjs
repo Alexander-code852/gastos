@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CATS, CAT, leerCategorias, usarCategorias, parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
   estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial,
-  serieMensual, compararCategorias, escalaY, frecuentes, buscar, leerIPC, aPesosDe, repetirIngresos, evaluarMonto, gastoPorDia, teclear, cuotasPendientes, sugerirCategoria, notasUsadas, ordenarCategorias } from "./logic.js";
+  serieMensual, compararCategorias, escalaY, frecuentes, buscar, leerIPC, aPesosDe, repetirIngresos, evaluarMonto, gastoPorDia, teclear, cuotasPendientes, sugerirCategoria, notasUsadas, ordenarCategorias, referenciaRitmo, ritmoMes, leerDolares, cierreMes } from "./logic.js";
 
 test("monthly series ends at the given month, oldest first, across the year", () => {
   const g = [{ id: "a", monto: 1000, fecha: "2026-01-10", cat: "cafe", medio: "mp", hormiga: true },
@@ -496,4 +496,98 @@ test("ordenarCategorias: most used in the last 90 days first, ties keep their or
 test("sugerirCategoria: exact notes in hidden categories do not block the prefix matches", () => {
   const g = [{ nota: "Uber", cat: "c-oculta", fecha: "2026-10-01", ts: 1 }, { nota: "Uber Eats", cat: "delivery", fecha: "2026-10-02", ts: 2 }];
   assert.equal(sugerirCategoria(g, "uber"), "delivery");
+});
+
+test("referenciaRitmo: budget minus this month's fixed expenses, installments and fixed ones still to come", () => {
+  const g = [
+    { id: "a", monto: 200000, fecha: "2026-10-01", fijoId: "alq", cat: "hogar" },
+    { id: "b", monto: 30000, cuotas: 3, fecha: "2026-09-10", cat: "ropa" },
+    { id: "c", monto: 5000, fecha: "2026-10-03", cat: "cafe" },
+  ];
+  const fijos = [{ id: "luz", monto: 15000, activo: true, ultimoMes: "2026-09" }, { id: "x", monto: 999, activo: false, ultimoMes: "2026-09" }];
+  assert.equal(referenciaRitmo(g, fijos, 2026, 9, 500000), 500000 - 200000 - 10000 - 15000);
+});
+
+test("referenciaRitmo: without a budget, the average variable spending of the last 3 months with spending", () => {
+  const g = [
+    { id: "1", monto: 100, fecha: "2026-09-05" }, { id: "2", monto: 300, fecha: "2026-08-05" },
+    { id: "3", monto: 99999, fecha: "2026-07-05", fijoId: "f" }, { id: "4", monto: 200, fecha: "2026-06-05" },
+    { id: "5", monto: 7777, fecha: "2026-05-05" },
+  ];
+  assert.equal(referenciaRitmo(g, [], 2026, 9, null), 200);
+});
+
+test("referenciaRitmo: null with no budget and no history, or a budget eaten by fixed expenses", () => {
+  assert.equal(referenciaRitmo([], [], 2026, 9, null), null);
+  assert.equal(referenciaRitmo([{ id: "a", monto: 900, fecha: "2026-10-01", fijoId: "f" }], [], 2026, 9, 800), null);
+});
+
+test("ritmoMes: fast, on pace or with room, 10 points of tolerance", () => {
+  const hoy = new Date(2026, 9, 16); // day 16 of 31: about 52% of the month
+  assert.equal(ritmoMes(8000, 10000, 2026, 9, hoy).estado, "rapido");
+  assert.equal(ritmoMes(5000, 10000, 2026, 9, hoy).estado, "justo");
+  assert.equal(ritmoMes(3000, 10000, 2026, 9, hoy).estado, "holgado");
+  assert.deepEqual(Object.keys(ritmoMes(5000, 10000, 2026, 9, hoy)).sort(), ["dia", "dias", "estado", "tiempo", "uso"]);
+});
+
+test("ritmoMes: only for the current month and a positive reference", () => {
+  const hoy = new Date(2026, 9, 16);
+  assert.equal(ritmoMes(100, 1000, 2026, 8, hoy), null);
+  assert.equal(ritmoMes(100, null, 2026, 9, hoy), null);
+});
+
+test("leerDolares: keeps the selling price and date of the known rates", () => {
+  const r = leerDolares([
+    { casa: "oficial", venta: 1550, fechaActualizacion: "2026-10-23T18:55:00.000Z" },
+    { casa: "bolsa", venta: 1563.9, fechaActualizacion: "2026-10-25T17:58:00.000Z" },
+    { casa: "cripto", venta: 1600, fechaActualizacion: "x" },
+  ]);
+  assert.deepEqual(r, { oficial: { venta: 1550, fecha: "2026-10-23T18:55:00.000Z" }, bolsa: { venta: 1563.9, fecha: "2026-10-25T17:58:00.000Z" } });
+});
+
+test("leerDolares: broken data throws", () => {
+  assert.throws(() => leerDolares(null));
+  assert.throws(() => leerDolares([{ casa: "blue", venta: "mucho" }]));
+});
+
+test("cierreMes: total, change against the month before, the category that grew most and hormiga", () => {
+  const g = [
+    { id: "1", monto: 1000, fecha: "2026-09-02", cat: "cafe", hormiga: true },
+    { id: "2", monto: 3000, fecha: "2026-09-03", cat: "super" },
+    { id: "3", monto: 2000, fecha: "2026-08-03", cat: "super" },
+    { id: "4", monto: 1200, fecha: "2026-08-04", cat: "delivery" },
+  ];
+  assert.deepEqual(cierreMes(g, 2026, 8), { total: 4000, anterior: 3200, pct: 25, hormiga: 1000, sube: { cat: "super", delta: 1000 } });
+});
+
+test("cierreMes: no previous spending gives no percentage; nothing grew gives no category; an empty month gives null", () => {
+  const g = [{ id: "1", monto: 500, fecha: "2026-09-02", cat: "cafe" }];
+  assert.deepEqual(cierreMes(g, 2026, 8), { total: 500, anterior: 0, pct: null, hormiga: 0, sube: { cat: "cafe", delta: 500 } });
+  assert.equal(cierreMes(g, 2026, 7), null);
+  const baja = [{ id: "1", monto: 100, fecha: "2026-09-02", cat: "cafe" }, { id: "2", monto: 900, fecha: "2026-08-02", cat: "cafe" }];
+  assert.equal(cierreMes(baja, 2026, 8).sube, null);
+});
+
+test("leerBackup keeps the dollar amount and rate of an expense, and drops broken ones", () => {
+  const r = leerBackup({ gastos: [
+    { id: "a", monto: 31300, fecha: "2026-10-01", cat: "cafe", medio: "credito", usd: 20, cotizacion: 1565, tipoDolar: "blue" },
+    { id: "b", monto: 100, fecha: "2026-10-01", cat: "cafe", medio: "credito", usd: -1, cotizacion: 1565, tipoDolar: "blue" },
+  ] });
+  assert.deepEqual([r.gastos[0].usd, r.gastos[0].cotizacion, r.gastos[0].tipoDolar], [20, 1565, "blue"]);
+  assert.equal("usd" in r.gastos[1], false);
+});
+
+test("ritmoMes: the first 3 days are always on pace, one supermarket trip is not overspending", () => {
+  assert.equal(ritmoMes(5000, 10000, 2026, 9, new Date(2026, 9, 1)).estado, "justo");
+  assert.equal(ritmoMes(5000, 10000, 2026, 9, new Date(2026, 9, 3)).estado, "justo");
+  assert.equal(ritmoMes(5000, 10000, 2026, 9, new Date(2026, 9, 4)).estado, "rapido");
+});
+
+test("leerDolares: a broken rate is skipped while the others are kept", () => {
+  assert.deepEqual(Object.keys(leerDolares([{ casa: "blue", venta: null }, { casa: "oficial", venta: 1550, fechaActualizacion: "x" }])), ["oficial"]);
+});
+
+test("frecuentes leaves out dollar expenses: their peso amount depends on the day's rate", () => {
+  const g = [1, 2].map(i => ({ id: "u" + i, monto: 15650, cat: "suscripciones", medio: "credito", fecha: `2026-10-0${i}`, usd: 10, cotizacion: 1565, tipoDolar: "tarjeta" }));
+  assert.deepEqual(frecuentes(g, new Date(2026, 9, 25)), []);
 });

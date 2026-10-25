@@ -60,3 +60,10 @@
 - [x] **26. Cuotas que vienen** (S: index.html, style.css, app.js).
 - [x] **27. Categoría automática y panel compacto** (M: index.html, style.css, app.js).
 - [x] **28. Revisión (agente revisor) y publicación.**
+
+## Etapa 8
+- [x] **29. Lógica** (S: logic.js, logic.test.mjs): `referenciaRitmo`, `ritmoMes`, `leerDolares`, `cierreMes`, copia con `usd`.
+- [x] **30. Ritmo del mes** (S: index.html, style.css, app.js).
+- [x] **31. Dólares en el panel +** (M: index.html, style.css, app.js).
+- [x] **32. Cierre de mes** (S: index.html, style.css, app.js).
+- [x] **33. Revisión (agente revisor) y publicación.**
