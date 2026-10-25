@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gastos Hormiga</title>
+<meta name="description" content="Registro de gastos y gastos hormiga">
+<meta name="theme-color" content="#f2f4ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121814" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Gastos">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <button class="nav" id="prev" type="button" aria-label="Mes anterior">‹</button>
+  <h1 id="mes">Este mes</h1>
+  <button class="nav" id="next" type="button" aria-label="Mes siguiente">›</button>
+</header>
+
+<main class="wrap">
+  <div class="banner" id="banner" hidden>
+    <span id="bannerTxt"></span>
+    <button type="button" id="bannerBtn">Guardar copia</button>
+  </div>
+
+  <section class="resumen" aria-live="polite">
+    <div class="total"><span class="lbl">Gastaste en el mes</span><span class="big" id="total">$ 0</span></div>
+    <div class="hormiga"><span class="lbl">Gastos hormiga</span><span class="val" id="hTotal">$ 0</span><span class="sub" id="hPct"></span></div>
+    <p class="proy" id="proy"></p>
+  </section>
+
+  <form id="form" novalidate>
+    <label for="monto" class="lbl" id="formTitle">Nuevo gasto</label>
+    <div class="monto-row"><span aria-hidden="true">$</span><input id="monto" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Monto en pesos"></div>
+    <div id="cats" class="chips" role="radiogroup" aria-label="Categoría"></div>
+    <div class="sublbl">Medio de pago</div>
+    <div id="medios" class="chips small" role="radiogroup" aria-label="Medio de pago"></div>
+    <div class="cuotas-row" id="cuotasRow" hidden>
+      <label for="cuotas">Cuotas</label>
+      <select id="cuotas">
+        <option value="1">1 pago</option><option value="3">3 cuotas</option><option value="6">6 cuotas</option>
+        <option value="9">9 cuotas</option><option value="12">12 cuotas</option><option value="18">18 cuotas</option>
+        <option value="24">24 cuotas</option>
+      </select>
+      <span class="sub" id="cuotaInfo"></span>
+    </div>
+    <div class="row2">
+      <input id="nota" placeholder="Nota (opcional)" maxlength="80" aria-label="Nota">
+      <input id="fecha" type="date" aria-label="Fecha">
+    </div>
+    <label class="check"><input type="checkbox" id="esHormiga"> Es un gasto hormiga</label>
+    <div class="actions">
+      <button class="primary" id="guardar" type="submit">Agregar gasto</button>
+      <button class="secondary" id="cancelar" type="button" hidden>Cancelar</button>
+    </div>
+    <p class="msg" id="msg" role="status"></p>
+  </form>
+
+  <section><h2>Por categoría</h2><div class="bars" id="porCat"></div></section>
+  <section><h2>Por medio de pago</h2><div class="bars" id="porMedio"></div></section>
+  <section><h2>Movimientos</h2><div id="lista"></div></section>
+
+  <section class="backup">
+    <h2>Copia de seguridad</h2>
+    <p class="sub">Tus gastos se guardan solo en este teléfono. Guardá una copia en Archivos o iCloud de vez en cuando.</p>
+    <div class="actions wrap-row">
+      <button class="secondary" type="button" id="exportar">Guardar copia</button>
+      <label class="secondary filebtn">Restaurar copia<input type="file" id="importar" accept=".json,application/json"></label>
+      <button class="secondary" type="button" id="csv">Exportar a Excel</button>
+    </div>
+  </section>
+</main>
+
+<div id="toast" hidden><span id="toastTxt"></span><button id="undo" type="button">Deshacer</button></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
