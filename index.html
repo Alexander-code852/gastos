@@ -184,6 +184,22 @@
   <button type="button" data-go="copia"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Copia</button>
 </nav>
 
+<dialog id="sheet" class="sheet" aria-labelledby="sheetTitle">
+  <div class="sheet-in">
+    <div class="sheet-h" id="sheetHead">
+      <span class="grab" aria-hidden="true"></span>
+      <h2 id="sheetTitle">Categoría</h2>
+      <button class="x" id="sheetClose" type="button" aria-label="Cerrar">×</button>
+    </div>
+    <div class="sheet-body" id="sheetBody">
+      <div class="sheet-total"><span class="lbl" id="sheetMes"></span><span class="big num" id="sheetTotal"></span><span class="sub" id="sheetSub"></span></div>
+      <div class="budget" id="sheetBudget" hidden></div>
+      <div class="mini" id="sheetChart" role="img"></div>
+      <div><span class="lbl">Gastos del mes</span><div id="sheetLista"></div></div>
+    </div>
+  </div>
+</dialog>
+
 <div id="toast" role="status" aria-live="polite" hidden><span id="toastTxt"></span><button id="undo" type="button" hidden>Deshacer</button></div>
 <script type="module" src="app.js"></script>
 </body>
