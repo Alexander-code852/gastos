@@ -1,8 +1,8 @@
-import { CATS, CAT, MEDIOS, MEDIO, parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
+import { CATS, CAT, leerCategorias, usarCategorias, MEDIOS, MEDIO, parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
   estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial,
   serieMensual, compararCategorias, escalaY, frecuentes, buscar, leerIPC, aPesosDe, repetirIngresos } from "./logic.js";
 
-const KEYS = { gastos: "gastos.v1", presupuestos: "gastos.presupuestos", fijos: "gastos.fijos", ingresos: "gastos.ingresos" };
+const KEYS = { gastos: "gastos.v1", presupuestos: "gastos.presupuestos", fijos: "gastos.fijos", ingresos: "gastos.ingresos", categorias: "gastos.categorias" };
 const INSTALAR_KEY = "gastos.instalarCerrado", BACKUP_KEY = "gastos.ultimaCopia", TAB_KEY = "gastos.tab", RANGO_KEY = "gastos.rango", AJUSTE_KEY = "gastos.ajuste", IPC_KEY = "gastos.ipc";
 const IPC_URL = "https://api.argentinadatos.com/v1/finanzas/indices/inflacion";
 const TABS = ["gastos", "presupuestos", "meses", "fijos", "copia"];
@@ -25,11 +25,13 @@ const S = {
   presupuestos: { cat: {}, ...read(KEYS.presupuestos, {}) },
   fijos: read(KEYS.fijos, []),
   ingresos: read(KEYS.ingresos, []),
+  categorias: leerCategorias(read(KEYS.categorias, null)),
 };
+usarCategorias(S.categorias);
 let view = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; })();
 let tab = (() => { try { return localStorage.getItem(TAB_KEY) || "gastos"; } catch { return "gastos"; } })();
 const ym = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
-let cat = "kiosco", medio = "efectivo", editingId = null, editingFijo = null, editingIngreso = null, undoState = null, toastTimer = 0;
+let cat = CATS[0][0], medio = "efectivo", editingId = null, editingFijo = null, editingIngreso = null, undoState = null, toastTimer = 0;
 
 // Writes every changed key first and only then swaps memory; if any write fails, the earlier ones are rolled back.
 function commit(changes) {
@@ -47,6 +49,7 @@ function commit(changes) {
     return false;
   }
   Object.assign(S, changes);
+  if (changes.categorias) alCambiarCategorias();
   render();
   return true;
 }
@@ -416,6 +419,74 @@ $("ingForm").addEventListener("submit", ev => {
 });
 $("iCancelar").onclick = resetIngresoForm;
 
+/* ---------- Categorías ---------- */
+
+// Everything that lists categories was built from CATS; rebuild it, and move the form off a category that got hidden.
+function alCambiarCategorias() {
+  usarCategorias(S.categorias);
+  budgetCards.clear();
+  fillSelect($("fCat"), CATS);
+  if (!editingId && !CATS.some(([id]) => id === cat)) { cat = CATS[0][0]; $("esHormiga").checked = CAT[cat].h; }
+  renderForm();
+}
+
+function guardarCategorias(lista, msg) {
+  if (commit({ categorias: leerCategorias(lista) })) { if (msg) say(msg); return true; }
+  return false;
+}
+
+const nombreUsado = (label, salvo) => S.categorias.some(c => c.id !== salvo && c.label.toLowerCase() === label.toLowerCase());
+
+// Rows are rebuilt only after a button tap; renames and the hormiga box update in place, so typing never loses the next tap.
+function renderCategorias() {
+  $("catsLista").replaceChildren(...S.categorias.map(c => {
+    const row = el("div", "cat-row" + (c.oculta ? " oculta" : ""));
+    const name = el("input", "cat-name");
+    name.value = c.label; name.maxLength = 24; name.autocomplete = "off";
+    name.setAttribute("aria-label", `Nombre de la categoría ${c.label}`);
+    name.addEventListener("keydown", e => { if (e.key === "Enter") name.blur(); });
+    name.addEventListener("change", () => {
+      const label = name.value.trim(), actual = S.categorias.find(x => x.id === c.id);
+      if (!label || nombreUsado(label, c.id)) {
+        say(label ? `Ya tenés una categoría llamada ${label}.` : "El nombre no puede quedar vacío.", "err");
+        name.value = actual.label;
+        return;
+      }
+      guardarCategorias(S.categorias.map(x => x.id === c.id ? { ...x, label } : x));
+    });
+    const h = el("label", "check small");
+    const box = el("input"); box.type = "checkbox"; box.checked = c.h;
+    box.setAttribute("aria-label", `${c.label} es de gastos hormiga`);
+    box.addEventListener("change", () => guardarCategorias(S.categorias.map(x => x.id === c.id ? { ...x, h: box.checked } : x)));
+    h.append(box, document.createTextNode("Hormiga"));
+    row.append(name, h);
+    if (c.id !== "otros") {
+      const t = el("button", "link", c.oculta ? "Mostrar" : "Ocultar");
+      t.type = "button";
+      t.setAttribute("aria-label", `${c.oculta ? "Mostrar" : "Ocultar"} ${c.label}`);
+      t.onclick = () => {
+        if (guardarCategorias(S.categorias.map(x => x.id === c.id ? { ...x, oculta: !x.oculta } : x),
+          c.oculta ? `${c.label} vuelve a aparecer al cargar.` : `${c.label} ya no aparece al cargar. Tus gastos anteriores la conservan.`)) renderCategorias();
+      };
+      row.append(t);
+    } else row.append(el("span"));
+    return row;
+  }));
+}
+
+$("editarCats").onclick = () => { renderCategorias(); $("catsDlg").showModal(); };
+$("catForm").addEventListener("submit", ev => {
+  ev.preventDefault();
+  const label = $("catNombre").value.trim();
+  if (!label) { $("catNombre").focus(); return; }
+  if (nombreUsado(label)) { say(`Ya tenés una categoría llamada ${label}.`, "err"); return; }
+  const id = "c-" + crypto.randomUUID().slice(0, 8);
+  if (!guardarCategorias([...S.categorias, { id, label, h: $("catHormiga").checked, oculta: false }], `Agregaste ${label}.`)) return;
+  $("catForm").reset();
+  renderCategorias();
+  if (!editingId) { cat = id; $("esHormiga").checked = CAT[id].h; renderForm(); }
+});
+
 /* ---------- Category detail sheet ---------- */
 
 let sheetCat = null;
@@ -444,7 +515,7 @@ function abrirNuevo() {
 $("fab").onclick = () => { if (editingId) resetForm(); abrirNuevo(); };
 
 const wide = matchMedia("(min-width: 960px)");
-for (const [d, head, x] of [[$("sheet"), $("sheetHead"), $("sheetClose")], [$("nuevo"), $("nuevoHead"), $("nuevoClose")]]) {
+for (const [d, head, x] of [[$("sheet"), $("sheetHead"), $("sheetClose")], [$("nuevo"), $("nuevoHead"), $("nuevoClose")], [$("catsDlg"), $("catsHead"), $("catsClose")]]) {
   d.addEventListener("close", () => { d.style.transform = ""; });
   d.addEventListener("cancel", e => { e.preventDefault(); cerrar(d); });
   // The panel fills the dialog, so a click whose target is the dialog itself landed on the backdrop.
@@ -596,12 +667,12 @@ $("next").onclick = () => { view = view.m < 11 ? { y: view.y, m: view.m + 1 } : 
 
 /* ---------- Presupuestos ---------- */
 
-const BUDGET_ROWS = [["total", "Total del mes"], ["hormiga", "Gastos hormiga"], ...CATS.map(([id, label]) => [id, label])];
+const budgetRows = () => [["total", "Total del mes"], ["hormiga", "Gastos hormiga"], ...CATS.map(([id, label]) => [id, label])];
 
 // Cards are built once and then only updated: rebuilding them would swallow the tap on the next field on iPhone.
 const budgetCards = new Map();
 function buildBudgetCards() {
-  $("budgets").replaceChildren(...BUDGET_ROWS.map(([key, label], i) => {
+  $("budgets").replaceChildren(...budgetRows().map(([key, label], i) => {
     const card = el("div", "bcard" + (i < 2 ? " main" : ""));
     const head = el("div", "bhead");
     const lab = el("label", null, label);
@@ -627,7 +698,7 @@ const budgetAbiertas = new Set(["total", "hormiga"]);
 function renderPresupuestos(r) {
   if (!budgetCards.size) buildBudgetCards();
   const p = S.presupuestos, porCat = Object.fromEntries(r.porCat);
-  for (const [key] of BUDGET_ROWS) {
+  for (const [key] of budgetRows()) {
     const { card, input, status } = budgetCards.get(key);
     const limite = key === "total" || key === "hormiga" ? p[key] : p.cat[key];
     if (limite) budgetAbiertas.add(key);
@@ -641,7 +712,7 @@ function renderPresupuestos(r) {
       status.replaceChildren(el("span", "sub", gastado ? `Gastaste ${fmt(gastado)} este mes` : "Sin gastos este mes"));
     }
   }
-  $("bAgregar").hidden = budgetAbiertas.size === BUDGET_ROWS.length;
+  $("bAgregar").hidden = budgetRows().every(([key]) => budgetAbiertas.has(key));
 }
 
 // The picker is rebuilt only when it opens, so a render never swallows a tap on one of its chips.
@@ -650,7 +721,7 @@ $("bAgregar").onclick = () => {
   $("bElegir").hidden = !open;
   $("bAgregar").setAttribute("aria-expanded", String(open));
   if (!open) return;
-  $("bElegir").replaceChildren(...BUDGET_ROWS.filter(([key]) => !budgetAbiertas.has(key)).map(([key, label]) => {
+  $("bElegir").replaceChildren(...budgetRows().filter(([key]) => !budgetAbiertas.has(key)).map(([key, label]) => {
     const b = el("button", "chip", label);
     b.type = "button";
     b.onclick = () => {
@@ -904,6 +975,8 @@ function editarFijo(id) {
   if (!f) return;
   editingFijo = id;
   $("fNombre").value = f.nombre; $("fMonto").value = inputFmt(f.monto);
+  // A hidden category is not in the list; add it back for this one so editing does not move it elsewhere.
+  if (!$("fCat").querySelector(`option[value="${f.cat}"]`)) $("fCat").append(Object.assign(el("option", null, CAT[f.cat]?.label ?? f.cat), { value: f.cat }));
   $("fCat").value = f.cat; $("fMedio").value = f.medio; $("fDia").value = String(f.dia);
   $("fEsteMesRow").hidden = true;
   $("fijoTitle").textContent = `Editar ${f.nombre} (cambia desde el próximo cargo)`;
@@ -982,8 +1055,8 @@ async function guardarArchivo(nombre, texto, tipo) {
 }
 
 async function exportar() {
-  const json = JSON.stringify({ app: "gastos-hormiga", version: 3, exportado: new Date().toISOString(),
-    gastos: S.gastos, presupuestos: S.presupuestos, fijos: S.fijos, ingresos: S.ingresos }, null, 1);
+  const json = JSON.stringify({ app: "gastos-hormiga", version: 4, exportado: new Date().toISOString(),
+    gastos: S.gastos, presupuestos: S.presupuestos, fijos: S.fijos, ingresos: S.ingresos, categorias: S.categorias }, null, 1);
   if (await guardarArchivo(`gastos-${today()}.json`, json, "application/json")) {
     try { localStorage.setItem(BACKUP_KEY, String(Date.now())); } catch {}
     render();
@@ -992,7 +1065,7 @@ async function exportar() {
 }
 $("exportar").onclick = exportar;
 $("bannerBtn").onclick = exportar;
-$("csv").onclick = () => guardarArchivo(`gastos-${today()}.csv`, aCSV(S.gastos), "text/csv");
+$("csv").onclick = () => guardarArchivo(`gastos-${today()}.csv`, aCSV(S.gastos, S.ingresos), "text/csv");
 
 $("importar").addEventListener("change", async ev => {
   const file = ev.target.files?.[0];
@@ -1005,6 +1078,7 @@ $("importar").addEventListener("change", async ev => {
     if (r.fijos) changes.fijos = merge(S.fijos, r.fijos);
     if (r.ingresos) changes.ingresos = merge(S.ingresos, r.ingresos);
     if (r.presupuestos) changes.presupuestos = r.presupuestos;
+    if (r.categorias) changes.categorias = leerCategorias(merge(S.categorias, r.categorias));
     if (commit(changes)) {
       aplicarFijos();
       say(`Restauraste ${r.gastos.length} gastos${r.fijos ? `, ${r.fijos.length} fijos` : ""}${r.ingresos ? `, ${r.ingresos.length} ingresos` : ""}${r.presupuestos ? " y tus presupuestos" : ""}.`);

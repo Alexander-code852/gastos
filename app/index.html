@@ -184,6 +184,7 @@
           <p class="form-err" id="formErr" role="alert" hidden>Escribí un monto mayor a cero, por ejemplo 1500 o 1.500,50.</p>
           <div class="monto-row"><span aria-hidden="true">$</span><input id="monto" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Monto en pesos"></div>
           <div id="cats" class="chips" role="radiogroup" aria-label="Categoría"></div>
+          <button type="button" class="link edit-cats" id="editarCats">Editar categorías</button>
           <div class="sublbl">Medio de pago</div>
           <div id="medios" class="chips small" role="radiogroup" aria-label="Medio de pago"></div>
           <div class="cuotas-row" id="cuotasRow" hidden>
@@ -210,6 +211,26 @@
 </dialog>
 
 <button class="fab" id="fab" type="button" aria-label="Nuevo gasto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+
+<dialog id="catsDlg" class="sheet" aria-labelledby="catsTitle">
+  <div class="sheet-in">
+    <div class="sheet-h" id="catsHead">
+      <span class="grab" aria-hidden="true"></span>
+      <h2 id="catsTitle">Categorías</h2>
+      <button class="x" id="catsClose" type="button" aria-label="Cerrar">×</button>
+    </div>
+    <div class="sheet-body">
+      <p class="sub">Tocá un nombre para cambiarlo. Las ocultas no aparecen al cargar, pero tus gastos anteriores las conservan.</p>
+      <div id="catsLista"></div>
+      <form id="catForm" novalidate>
+        <span class="lbl">Nueva categoría</span>
+        <input id="catNombre" class="cat-name" maxlength="24" placeholder="Mascotas, gimnasio, regalos…" aria-label="Nombre de la nueva categoría" autocomplete="off">
+        <label class="check"><input type="checkbox" id="catHormiga"> Es de gastos hormiga</label>
+        <button class="primary" id="catAgregar" type="submit">Agregar categoría</button>
+      </form>
+    </div>
+  </div>
+</dialog>
 
 <dialog id="sheet" class="sheet" aria-labelledby="sheetTitle">
   <div class="sheet-in">

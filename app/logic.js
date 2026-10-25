@@ -1,14 +1,43 @@
 // Pure logic, no DOM: tested by logic.test.mjs with `node --test`.
 
 // [id, label, hormiga by default]
-export const CATS = [
+const DEFAULT_CATS = [
   ["kiosco", "Kiosco", true], ["cafe", "Café", true], ["delivery", "Delivery", true],
   ["comida", "Comida", false], ["super", "Súper", false], ["transporte", "Transporte", false],
   ["salidas", "Salidas", false], ["servicios", "Servicios", false], ["salud", "Salud", false],
   ["ropa", "Ropa", false], ["hogar", "Hogar", false], ["suscripciones", "Suscripciones", false],
   ["otros", "Otros", false],
 ];
-export const CAT = Object.fromEntries(CATS.map(([id, label, h]) => [id, { label, h }]));
+// Filled in place by usarCategorias, so every importer sees the user's categories.
+// CATS: the visible ones to pick from, as [id, label, h]. CAT: every one by id, hidden too, so old expenses keep their name.
+export const CATS = [];
+export const CAT = {};
+
+// Validates the saved category list: renames, hidden flags and custom ones are kept; a default can never go missing,
+// and "otros" stays visible and last because it is where unknown categories land.
+export function leerCategorias(raw) {
+  const out = [], seen = new Set();
+  for (const c of Array.isArray(raw) ? raw : []) {
+    const label = typeof c?.label === "string" ? c.label.trim().slice(0, 24) : "";
+    if (typeof c?.id !== "string" || !/^[a-z0-9-]{1,40}$/.test(c.id) || !label || seen.has(c.id)) continue;
+    seen.add(c.id);
+    out.push({ id: c.id, label, h: !!c.h, oculta: c.id !== "otros" && !!c.oculta });
+  }
+  for (const [id, label, h] of DEFAULT_CATS) if (!seen.has(id)) out.push({ id, label, h, oculta: false });
+  const i = out.findIndex(c => c.id === "otros");
+  out.push(...out.splice(i, 1));
+  return out;
+}
+
+export function usarCategorias(lista) {
+  CATS.length = 0;
+  for (const k of Object.keys(CAT)) delete CAT[k];
+  for (const c of lista) {
+    CAT[c.id] = { label: c.label, h: c.h };
+    if (!c.oculta) CATS.push([c.id, c.label, c.h]);
+  }
+}
+usarCategorias(leerCategorias(null));
 
 export const MEDIOS = [
   ["efectivo", "Efectivo"], ["debito", "Débito"], ["credito", "Crédito"],
@@ -79,6 +108,9 @@ const mesKey = (y, m) => `${y}-${pad(m + 1)}`;
 export function leerBackup(obj) {
   const list = Array.isArray(obj) ? obj : obj?.gastos;
   if (!Array.isArray(list)) throw new Error("El archivo no es una copia de seguridad de Gastos Hormiga.");
+  // v4 backups carry the category list; their custom categories must survive the check below.
+  const categorias = Array.isArray(obj?.categorias) ? leerCategorias(obj.categorias) : null;
+  const conocida = id => !!CAT[id] || !!categorias?.some(c => c.id === id);
   const gastos = list.map((g, i) => {
     const monto = typeof g.monto === "number" ? g.monto : parseMonto(g.monto);
     if (!(monto > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(g.fecha ?? "")) throw new Error(`El gasto número ${i + 1} tiene datos inválidos.`);
@@ -86,7 +118,7 @@ export function leerBackup(obj) {
     const out = {
       id: typeof g.id === "string" && g.id ? g.id : crypto.randomUUID(),
       monto,
-      cat: CAT[g.cat] ? g.cat : "otros",
+      cat: conocida(g.cat) ? g.cat : "otros",
       medio: MEDIO[g.medio] ? g.medio : "efectivo",
       cuotas,
       nota: String(g.nota ?? "").slice(0, 80),
@@ -104,7 +136,7 @@ export function leerBackup(obj) {
     presupuestos = { cat: {} };
     if (positivo(p.total)) presupuestos.total = p.total;
     if (positivo(p.hormiga)) presupuestos.hormiga = p.hormiga;
-    for (const [id, v] of Object.entries(p.cat ?? {})) if (CAT[id] && positivo(v)) presupuestos.cat[id] = v;
+    for (const [id, v] of Object.entries(p.cat ?? {})) if (conocida(id) && positivo(v)) presupuestos.cat[id] = v;
   }
 
   let fijos = null;
@@ -116,7 +148,7 @@ export function leerBackup(obj) {
         id: typeof f.id === "string" && f.id ? f.id : crypto.randomUUID(),
         nombre: String(f.nombre ?? "").slice(0, 40) || "Gasto fijo",
         monto: f.monto,
-        cat: CAT[f.cat] ? f.cat : "otros",
+        cat: conocida(f.cat) ? f.cat : "otros",
         medio: MEDIO[f.medio] ? f.medio : "efectivo",
         dia: f.dia,
         activo: f.activo !== false,
@@ -137,7 +169,7 @@ export function leerBackup(obj) {
       };
     });
   }
-  return { gastos, presupuestos, fijos, ingresos };
+  return { gastos, presupuestos, fijos, ingresos, categorias };
 }
 
 // null when there is no limit. "cerca" covers 80% up to exactly 100%.
@@ -249,12 +281,14 @@ const csvCell = v => {
 };
 
 // Semicolon-separated with decimal comma, which is what Excel in Spanish expects.
-export function aCSV(gastos) {
-  const rows = [["Fecha", "Monto", "Categoría", "Medio de pago", "Cuotas", "Hormiga", "Nota"]];
-  for (const g of [...gastos].sort((a, b) => a.fecha.localeCompare(b.fecha))) {
-    rows.push([g.fecha, String(g.monto).replace(".", ","), CAT[g.cat]?.label ?? g.cat, MEDIO[g.medio] ?? g.medio,
-      String(g.cuotas || 1), g.hormiga ? "Sí" : "No", g.nota || ""]);
-  }
+export function aCSV(gastos, ingresos = []) {
+  const coma = n => String(n).replace(".", ",");
+  const filas = [
+    ...gastos.map(g => [g.fecha, "Gasto", coma(g.monto), CAT[g.cat]?.label ?? g.cat, MEDIO[g.medio] ?? g.medio,
+      String(g.cuotas || 1), g.hormiga ? "Sí" : "No", g.nota || ""]),
+    ...ingresos.map(x => [x.fecha, "Ingreso", coma(x.monto), "", "", "", "", x.concepto || ""]),
+  ].sort((a, b) => a[0].localeCompare(b[0]));
+  const rows = [["Fecha", "Tipo", "Monto", "Categoría", "Medio de pago", "Cuotas", "Hormiga", "Nota"], ...filas];
   return "﻿" + rows.map(r => r.map(csvCell).join(";")).join("\r\n");
 }
 

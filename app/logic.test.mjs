@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
+import { CATS, CAT, leerCategorias, usarCategorias, parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
   estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial,
   serieMensual, compararCategorias, escalaY, frecuentes, buscar, leerIPC, aPesosDe, repetirIngresos } from "./logic.js";
 
@@ -203,7 +203,7 @@ test("CSV neutralizes notes that Excel would run as formulas", () => {
 
 test("CSV quotes notes with separators", () => {
   const csv = aCSV([{ fecha: "2026-10-01", monto: 1500.5, cat: "cafe", medio: "mp", nota: 'dijo "hola"; chau', hormiga: true }]);
-  assert.match(csv, /2026-10-01;1500,5;Café;Mercado Pago;1;Sí;"dijo ""hola""; chau"/);
+  assert.match(csv, /2026-10-01;Gasto;1500,5;Café;Mercado Pago;1;Sí;"dijo ""hola""; chau"/);
 });
 
 const gx = (id, monto, cat, medio, fecha, extra = {}) => ({ id, ts: Date.parse(fecha + "T12:00"), monto, cat, medio, cuotas: 1, nota: "", fecha, hormiga: false, ...extra });
@@ -284,4 +284,57 @@ test("leerBackup reads income from a v3 backup and leaves it null for older ones
   assert.deepEqual(r.ingresos, [{ id: "i", monto: 1000, concepto: "Sueldo", fecha: "2026-10-01", ts: 5 }]);
   assert.equal(leerBackup({ version: 2, gastos: [] }).ingresos, null);
   assert.throws(() => leerBackup({ gastos: [], ingresos: [{ monto: 0, fecha: "2026-10-01" }] }));
+});
+
+test("CSV includes income rows, all sorted by date", () => {
+  const csv = aCSV([{ fecha: "2026-10-05", monto: 100, cat: "cafe", medio: "mp", nota: "", hormiga: true }],
+    [{ fecha: "2026-10-01", monto: 850000, concepto: "Sueldo" }]);
+  const lines = csv.slice(1).split("\r\n");
+  assert.equal(lines[0], "Fecha;Tipo;Monto;Categoría;Medio de pago;Cuotas;Hormiga;Nota");
+  assert.equal(lines[1], "2026-10-01;Ingreso;850000;;;;;Sueldo");
+  assert.equal(lines[2], "2026-10-05;Gasto;100;Café;Mercado Pago;1;Sí;");
+});
+
+test("categories: missing or broken data gives the defaults", () => {
+  for (const raw of [null, "x", [], [{ id: 1 }]]) {
+    const c = leerCategorias(raw);
+    assert.equal(c.length, 13);
+    assert.deepEqual(c[0], { id: "kiosco", label: "Kiosco", h: true, oculta: false });
+  }
+});
+
+test("categories: keeps renames, hidden and custom ones; defaults never go missing; Otros stays visible", () => {
+  const c = leerCategorias([
+    { id: "cafe", label: "  Cafecito ", h: false, oculta: true },
+    { id: "c-mascotas", label: "Mascotas", h: false },
+    { id: "otros", label: "Otros", oculta: true },
+    { id: "c-x", label: "" }, { id: "Mal Id", label: "Mal" }, { id: "c-mascotas", label: "Repetida" },
+  ]);
+  assert.deepEqual(c.find(x => x.id === "cafe"), { id: "cafe", label: "Cafecito", h: false, oculta: true });
+  assert.ok(c.some(x => x.id === "c-mascotas" && x.label === "Mascotas"));
+  assert.equal(c.find(x => x.id === "otros").oculta, false);
+  assert.equal(c.filter(x => x.id === "c-mascotas").length, 1);
+  assert.ok(!c.some(x => x.id === "c-x" || x.id === "Mal Id"));
+  assert.equal(c.length, 14);
+  assert.equal(c.at(-1).id, "otros");
+});
+
+test("usarCategorias: CAT knows every category, CATS lists only the visible ones", () => {
+  try {
+    usarCategorias(leerCategorias([{ id: "cafe", label: "Cafecito", h: true, oculta: true }, { id: "c-gym", label: "Gimnasio", h: false }]));
+    assert.equal(CAT.cafe.label, "Cafecito");
+    assert.equal(CAT["c-gym"].label, "Gimnasio");
+    assert.ok(!CATS.some(([id]) => id === "cafe"));
+    assert.ok(CATS.some(([id]) => id === "c-gym"));
+  } finally { usarCategorias(leerCategorias(null)); }
+  assert.equal(CATS.length, 13);
+});
+
+test("leerBackup keeps custom categories carried in the backup", () => {
+  const r = leerBackup({ version: 4, categorias: [{ id: "c-gym", label: "Gimnasio", h: false }],
+    gastos: [{ id: "a", monto: 5, fecha: "2026-10-01", cat: "c-gym" }], presupuestos: { cat: { "c-gym": 100 } } });
+  assert.equal(r.gastos[0].cat, "c-gym");
+  assert.equal(r.presupuestos.cat["c-gym"], 100);
+  assert.ok(r.categorias.some(c => c.id === "c-gym"));
+  assert.equal(leerBackup({ gastos: [] }).categorias, null);
 });
