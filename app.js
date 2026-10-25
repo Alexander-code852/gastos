@@ -455,6 +455,7 @@ function renderMeses() {
     $("mPromedioSub").textContent = conDatos.length === 1 ? "en 1 mes con gastos" : `en ${conDatos.length} meses`;
     $("mMax").textContent = pesos(top.total);
     $("mMaxSub").textContent = monthFmt.format(new Date(top.y, top.m, 1));
+    for (const id of ["mPromedio", "mMax"]) $(id).style.setProperty("--n", $(id).textContent.length); // the CSS shrinks long figures to fit
   } else {
     $("mPromedio").textContent = $("mMax").textContent = "—";
     $("mPromedioSub").textContent = "Sin gastos en este rango";

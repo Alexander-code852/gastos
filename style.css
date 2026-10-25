@@ -193,8 +193,10 @@ form.editing { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-s
 
 /* Months */
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 14px; display: grid; gap: 2px; min-width: 0; box-shadow: var(--shadow); }
+.stat { container-type: inline-size; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 14px; display: grid; gap: 2px; min-width: 0; box-shadow: var(--shadow); }
 .stat-val { font-family: var(--display); font-size: clamp(1.1rem, 5.6vw, 1.4rem); font-weight: 800; letter-spacing: -.02em; overflow-wrap: anywhere; }
+/* one line at any size: about .62em per character, so --n characters take the tile's whole width */
+@supports (font-size: 1cqi) { .stat-val { font-size: min(1.4rem, 100cqi / (var(--n, 10) * .62)); white-space: nowrap; } }
 .chart-card { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 16px 12px 12px; display: grid; gap: 8px; min-width: 0; box-shadow: var(--shadow); }
 .chart-card h2 { margin: 0; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .85rem; color: var(--muted); }
