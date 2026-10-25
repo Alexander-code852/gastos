@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
   estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial,
-  serieMensual, compararCategorias, escalaY } from "./logic.js";
+  serieMensual, compararCategorias, escalaY, frecuentes, buscar } from "./logic.js";
 
 test("monthly series ends at the given month, oldest first, across the year", () => {
   const g = [{ id: "a", monto: 1000, fecha: "2026-01-10", cat: "cafe", medio: "mp", hormiga: true },
@@ -204,4 +204,44 @@ test("CSV neutralizes notes that Excel would run as formulas", () => {
 test("CSV quotes notes with separators", () => {
   const csv = aCSV([{ fecha: "2026-10-01", monto: 1500.5, cat: "cafe", medio: "mp", nota: 'dijo "hola"; chau', hormiga: true }]);
   assert.match(csv, /2026-10-01;1500,5;Café;Mercado Pago;1;Sí;"dijo ""hola""; chau"/);
+});
+
+const gx = (id, monto, cat, medio, fecha, extra = {}) => ({ id, ts: Date.parse(fecha + "T12:00"), monto, cat, medio, cuotas: 1, nota: "", fecha, hormiga: false, ...extra });
+
+test("frequent: same category, amount and payment repeated in the last 60 days, most repeated first", () => {
+  const hoy = new Date(2026, 9, 25);
+  const g = [
+    gx("1", 3200, "cafe", "mp", "2026-10-01", { hormiga: true }), gx("2", 3200, "cafe", "mp", "2026-10-10", { hormiga: true }),
+    gx("3", 3200, "cafe", "mp", "2026-10-20", { hormiga: true }),
+    gx("4", 2500, "kiosco", "efectivo", "2026-10-02"), gx("5", 2500, "kiosco", "efectivo", "2026-10-22"),
+    gx("6", 3200, "cafe", "efectivo", "2026-10-05"), // other payment: separate and only once
+    gx("7", 9000, "super", "debito", "2026-08-01"), gx("8", 9000, "super", "debito", "2026-08-02"), // older than 60 days
+  ];
+  const f = frecuentes(g, hoy);
+  assert.deepEqual(f.map(x => [x.cat, x.monto, x.medio, x.veces]), [["cafe", 3200, "mp", 3], ["kiosco", 2500, "efectivo", 2]]);
+  assert.equal(f[0].hormiga, true);
+});
+
+test("frequent: ignores fixed expenses and installment purchases, keeps at most 4, ties go to the most recent", () => {
+  const hoy = new Date(2026, 9, 25);
+  const g = [];
+  for (const [i, c] of ["cafe", "kiosco", "delivery", "comida", "super"].entries())
+    g.push(gx(c + "a", 100 + i, c, "mp", "2026-10-01"), gx(c + "b", 100 + i, c, "mp", `2026-10-1${i}`));
+  g.push(gx("f1", 50, "servicios", "debito", "2026-10-01", { fijoId: "x" }), gx("f2", 50, "servicios", "debito", "2026-09-01", { fijoId: "x" }));
+  g.push(gx("c1", 60, "ropa", "credito", "2026-10-01", { cuotas: 3 }), gx("c2", 60, "ropa", "credito", "2026-10-02", { cuotas: 3 }));
+  assert.deepEqual(frecuentes(g, hoy).map(x => x.cat), ["super", "comida", "delivery", "kiosco"]);
+  assert.deepEqual(frecuentes([], hoy), []);
+});
+
+test("search: note, category or payment label, ignoring case and accents, newest first", () => {
+  const g = [
+    gx("1", 100, "delivery", "mp", "2026-09-01", { nota: "Rappi pizza" }),
+    gx("2", 200, "cafe", "efectivo", "2026-10-03"),
+    gx("3", 300, "super", "debito", "2026-10-04", { nota: "rappi turbo" }),
+  ];
+  assert.deepEqual(buscar(g, "RAPPI").map(x => x.id), ["3", "1"]);
+  assert.deepEqual(buscar(g, "cafe").map(x => x.id), ["2"]);
+  assert.deepEqual(buscar(g, "débito").map(x => x.id), ["3"]);
+  assert.deepEqual(buscar(g, "  ").map(x => x.id), []);
+  assert.deepEqual(buscar(g, "xyz"), []);
 });

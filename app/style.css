@@ -96,6 +96,23 @@ button { cursor: pointer; }
 .proy:empty { display: none; }
 .proy strong { color: var(--ant); }
 
+/* Quick add: the most repeated expenses, one tap each */
+.rapidos { display: grid; gap: 8px; }
+.rapidos-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.rapido { display: grid; justify-items: start; gap: 0; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 18px; padding: 10px 14px; box-shadow: var(--shadow); min-width: 0; transition: transform .2s var(--spring), border-color .2s; }
+.rapido > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.r-cat { font-weight: 700; font-size: .9rem; }
+.r-monto { font-family: var(--display); font-weight: 800; font-size: 1.2rem; letter-spacing: -.02em; color: var(--accent); }
+.r-medio { color: var(--muted); font-size: .78rem; }
+
+/* Search inside Movimientos */
+.search { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); padding: 0 12px; margin-bottom: 14px; transition: border-color .2s; }
+.search:focus-within { border-color: var(--accent); }
+.search svg { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; }
+.search input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 11px 0; outline: none; }
+.res-total { margin: 0 0 12px; color: var(--muted); }
+.res-total strong { color: var(--ink); font-family: var(--display); font-size: 1.15rem; }
+
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 16px; box-shadow: var(--shadow); min-width: 0; }
 
 form { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 18px 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; box-shadow: var(--shadow); transition: border-color .25s, box-shadow .25s; }
@@ -288,11 +305,12 @@ td.num { font-variant-numeric: tabular-nums; }
   #toast:not([hidden]) { animation: toastIn .35s var(--spring); }
   #mes.swap { animation: swap .3s var(--ease); }
   .tabbar button[aria-current="true"] svg { animation: pop .4s var(--spring); }
-  .chip:active, .nav:active, .primary:active, .secondary:active, .banner button:active { transform: scale(.95); }
+  #resultados:not([hidden]) { animation: fade .25s ease; }
+  .rapido:active, .chip:active, .nav:active, .primary:active, .secondary:active, .banner button:active { transform: scale(.95); }
   .item .edit:active { opacity: .6; }
 }
 @media (hover: hover) {
-  .chip:hover { border-color: var(--accent); }
+  .chip:hover, .rapido:hover { border-color: var(--accent); }
   .primary:hover { filter: brightness(1.08); }
   .secondary:hover, .nav:hover { background: var(--surface-2); }
   .del:hover { color: var(--danger); }

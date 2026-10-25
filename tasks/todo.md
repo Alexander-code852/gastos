@@ -28,3 +28,10 @@
 
 ### Punto de control B: todos los criterios de SPEC.md
 - [x] **7. Revisión y publicación**: revisión de código con la skill, Edge a 375 px en claro y oscuro, subir `VERSION` en `sw.js`, publicar y comprobar que todos los archivos respondan 200.
+
+## Etapa 3
+- [x] **8. Lógica** (S: logic.js, logic.test.mjs): `frecuentes(gastos, hoy)` y `buscar(gastos, texto)` con tests.
+- [x] **9. Frecuentes en la interfaz** (S: index.html, style.css, app.js): un toque guarda, con Deshacer y avisos.
+- [x] **10. Búsqueda en la interfaz** (S: index.html, style.css, app.js): lupa, resultados por mes con total, tocar edita.
+- [x] **11. Ícono** (XS: íconos PNG): generado desde un SVG con Chrome sin ventana.
+- [x] **12. Revisión y publicación.**

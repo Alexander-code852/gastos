@@ -86,3 +86,9 @@ export function fijosPendientes(fijos, hoy) { ... }
 ## Decisiones (aprobado 2026-10-25)
 1. Barra de pestañas abajo: Gastos, Presupuestos, Fijos y Copia.
 2. El presupuesto total y el de hormiga se muestran arriba en la pestaña Gastos (lo que queda y cuánto por día). La pestaña Presupuestos es para editarlos y ver el detalle por categoría.
+
+## Etapa 3: ícono, frecuentes y búsqueda (aprobado 2026-10-25)
+- **Ícono:** nuevo ícono con la paleta del rediseño (verde `#12382b`, crema `#f4f1ea`, naranja hormiga), en 192, 512 (maskable, dibujo dentro del 80 % central) y 180 para iPhone.
+- **Frecuentes:** arriba del formulario, hasta 4 botones con los gastos que más repetiste en los últimos 60 días (misma categoría, monto y medio de pago, al menos 2 veces; sin fijos ni compras en cuotas). Un toque lo guarda con la fecha de hoy y muestra el aviso con "Deshacer" y los avisos de presupuesto.
+- **Búsqueda:** una lupa en Movimientos que busca en todos los meses por nota, categoría o medio de pago, sin importar mayúsculas ni acentos. Muestra los resultados agrupados por mes y el total encontrado; tocar uno lo edita.
+- **Éxito:** tests de `frecuentes()` y `buscar()` en verde; sin desborde a 375 px en claro y oscuro; `VERSION` subida.
