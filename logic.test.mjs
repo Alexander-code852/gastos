@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
   estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial,
-  serieMensual, compararCategorias, escalaY, frecuentes, buscar } from "./logic.js";
+  serieMensual, compararCategorias, escalaY, frecuentes, buscar, leerIPC, aPesosDe, repetirIngresos } from "./logic.js";
 
 test("monthly series ends at the given month, oldest first, across the year", () => {
   const g = [{ id: "a", monto: 1000, fecha: "2026-01-10", cat: "cafe", medio: "mp", hormiga: true },
@@ -244,4 +244,44 @@ test("search: note, category or payment label, ignoring case and accents, newest
   assert.deepEqual(buscar(g, "débito").map(x => x.id), ["3"]);
   assert.deepEqual(buscar(g, "  ").map(x => x.id), []);
   assert.deepEqual(buscar(g, "xyz"), []);
+});
+
+const IPC = [{ fecha: "2026-07-31", valor: 2 }, { fecha: "2026-08-31", valor: 1.5 }, { fecha: "2026-09-30", valor: 1 }];
+
+test("IPC: monthly rates become cumulative levels, the last month is the reference", () => {
+  const ipc = leerIPC(IPC);
+  assert.equal(ipc.ultimo, "2026-09");
+  assert.ok(Math.abs(ipc.niveles["2026-09"] / ipc.niveles["2026-07"] - 1.015 * 1.01) < 1e-12);
+  assert.throws(() => leerIPC({ error: "x" }));
+  assert.throws(() => leerIPC([]));
+  assert.throws(() => leerIPC([{ fecha: "2026-09-30", valor: "dos" }]));
+});
+
+test("IPC: amounts move to pesos of the last month; months outside the data are left as they are", () => {
+  const ipc = leerIPC(IPC);
+  assert.equal(aPesosDe(1000, 2026, 8, ipc), 1000);                     // September is the reference
+  assert.equal(aPesosDe(1000, 2026, 7, ipc), 1010);                     // August: +1% in September
+  assert.equal(aPesosDe(1000, 2026, 6, ipc), 1025.15);                  // July: 1.015 * 1.01
+  assert.equal(aPesosDe(1000, 2026, 9, ipc), 1000);                     // October has no data yet
+  assert.equal(aPesosDe(1000, 2026, 3, ipc), 1025.15);                  // before the data: treated as the first month
+});
+
+test("repeating income copies last month's entries with new ids, clamping the day", () => {
+  const ing = [
+    { id: "a", monto: 900000, concepto: "Sueldo", fecha: "2026-01-31", ts: 1 },
+    { id: "b", monto: 50000, concepto: "Changa", fecha: "2026-01-10", ts: 2 },
+    { id: "c", monto: 1, concepto: "Otro mes", fecha: "2025-12-05", ts: 3 },
+  ];
+  const r = repetirIngresos(ing, 2026, 1, 99);
+  assert.deepEqual(r.map(x => [x.concepto, x.monto, x.fecha, x.ts]), [["Sueldo", 900000, "2026-02-28", 99], ["Changa", 50000, "2026-02-10", 99]]);
+  assert.ok(r.every(x => x.id && !["a", "b"].includes(x.id)));
+  assert.deepEqual(repetirIngresos(ing, 2026, 0, 99).map(x => x.fecha), ["2026-01-05"]);
+  assert.deepEqual(repetirIngresos(ing, 2026, 5, 99), []);
+});
+
+test("leerBackup reads income from a v3 backup and leaves it null for older ones", () => {
+  const r = leerBackup({ version: 3, gastos: [], ingresos: [{ id: "i", monto: 1000, concepto: "Sueldo", fecha: "2026-10-01", ts: 5 }] });
+  assert.deepEqual(r.ingresos, [{ id: "i", monto: 1000, concepto: "Sueldo", fecha: "2026-10-01", ts: 5 }]);
+  assert.equal(leerBackup({ version: 2, gastos: [] }).ingresos, null);
+  assert.throws(() => leerBackup({ gastos: [], ingresos: [{ monto: 0, fecha: "2026-10-01" }] }));
 });

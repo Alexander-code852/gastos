@@ -124,7 +124,20 @@ export function leerBackup(obj) {
       };
     });
   }
-  return { gastos, presupuestos, fijos };
+  let ingresos = null;
+  if (Array.isArray(obj?.ingresos)) {
+    ingresos = obj.ingresos.map((x, i) => {
+      if (!positivo(x.monto) || !/^\d{4}-\d{2}-\d{2}$/.test(x.fecha ?? "")) throw new Error(`El ingreso número ${i + 1} tiene datos inválidos.`);
+      return {
+        id: typeof x.id === "string" && x.id ? x.id : crypto.randomUUID(),
+        monto: x.monto,
+        concepto: String(x.concepto ?? "").slice(0, 40) || "Ingreso",
+        fecha: x.fecha,
+        ts: Number.isFinite(x.ts) ? x.ts : Date.now(),
+      };
+    });
+  }
+  return { gastos, presupuestos, fijos, ingresos };
 }
 
 // null when there is no limit. "cerca" covers 80% up to exactly 100%.
@@ -274,4 +287,34 @@ export function buscar(gastos, texto) {
   if (!q) return [];
   return gastos.filter(g => plano(`${g.nota ?? ""} ${CAT[g.cat]?.label ?? g.cat} ${MEDIO[g.medio] ?? g.medio}`).includes(q))
     .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.ts - a.ts);
+}
+
+// Monthly inflation rates ([{ fecha: "2026-09-30", valor: 1.9 }], as INDEC publishes them) chained into price levels.
+export function leerIPC(lista) {
+  if (!Array.isArray(lista) || !lista.length) throw new Error("No llegaron datos de inflación.");
+  const filas = lista.map(x => {
+    if (!/^\d{4}-\d{2}/.test(x?.fecha ?? "") || typeof x.valor !== "number" || !Number.isFinite(x.valor)) throw new Error("Los datos de inflación no tienen el formato esperado.");
+    return [x.fecha.slice(0, 7), x.valor];
+  }).sort((a, b) => a[0].localeCompare(b[0]));
+  const niveles = {};
+  let nivel = 100;
+  for (const [mes, v] of filas) niveles[mes] = nivel *= 1 + v / 100;
+  return { niveles, primero: filas[0][0], ultimo: filas.at(-1)[0] };
+}
+
+// An amount spent in month m (0-11) of year y, in pesos of the last month with data.
+// Months after the data are not adjusted; months before it count as the first month.
+export function aPesosDe(monto, y, m, ipc) {
+  const k = mesKey(y, m);
+  const mes = k > ipc.ultimo ? ipc.ultimo : k < ipc.primero ? ipc.primero : k;
+  return round2(monto * ipc.niveles[ipc.ultimo] / ipc.niveles[mes]);
+}
+
+// The previous month's income copied into month m of year y; day 31 becomes the month's last day.
+export function repetirIngresos(ingresos, y, m, ts = Date.now()) {
+  const prev = new Date(y, m - 1, 1), desde = mesKey(prev.getFullYear(), prev.getMonth());
+  const ultimo = new Date(y, m + 1, 0).getDate();
+  return ingresos.filter(x => x.fecha.startsWith(desde)).sort((a, b) => b.fecha.localeCompare(a.fecha))
+    .map(x => ({ id: crypto.randomUUID(), monto: x.monto, concepto: x.concepto,
+      fecha: `${mesKey(y, m)}-${pad(Math.min(Number(x.fecha.slice(8)), ultimo))}`, ts }));
 }
