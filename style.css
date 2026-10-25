@@ -10,6 +10,11 @@
   --ant: #b5470f;
   --ant-soft: #f6e3d6;
   --danger: #a3261d;
+  --danger-soft: #f8dedb;
+  --warn: #8a5a00;
+  --warn-soft: #fbeccb;
+  --warn-bar: #d99a00;
+  --ok: #116b52;
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
   --display: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
   color-scheme: light;
@@ -18,6 +23,7 @@
   :root {
     --bg: #121814; --surface: #1b231e; --ink: #e6ece6; --muted: #9aa89f; --line: #2d3831;
     --accent: #3fbf92; --accent-ink: #0c1a14; --ant: #f08a4b; --ant-soft: #3a261a; --danger: #f07a70;
+    --danger-soft: #3d1f1c; --warn: #f2c14e; --warn-soft: #3a2f14; --warn-bar: #f2c14e; --ok: #3fbf92;
     color-scheme: dark;
   }
 }
@@ -29,8 +35,9 @@ body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 var(
   max-width: 520px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 8px calc(48px + env(safe-area-inset-bottom, 0px));
+  padding-block: 8px calc(96px + env(safe-area-inset-bottom, 0px));
 }
+.tab { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
 h1, h2 { font-family: var(--display); margin: 0; text-wrap: balance; }
 h2 { font-size: 1.05rem; font-weight: 600; margin-bottom: 10px; }
 .lbl { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
@@ -107,11 +114,64 @@ form.editing { border-color: var(--accent); }
 .del { border: 0; background: transparent; color: var(--muted); font-size: .85rem; padding: 8px 4px; min-height: 40px; }
 .empty { color: var(--muted); margin: 0; }
 
+/* Budgets */
+.budget { display: grid; gap: 6px; margin-top: 8px; }
+.budget .track { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.budget .fill { height: 100%; border-radius: 4px; background: var(--ok); }
+.budget.cerca .fill { background: var(--warn-bar); }
+.budget.pasado .fill { background: var(--danger); }
+.budget-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.pill { font-size: .72rem; font-weight: 700; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.pill.bien { background: var(--accent); color: var(--accent-ink); }
+.pill.cerca { background: var(--warn-soft); color: var(--warn); }
+.pill.pasado { background: var(--danger-soft); color: var(--danger); }
+.hormiga .budget { flex-basis: 100%; }
+.budgets { display: grid; gap: 10px; }
+.bcard { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.bcard.main { border-color: var(--accent); }
+.bcard:nth-child(2) { border-color: var(--ant); }
+.bhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bhead label { font-weight: 600; }
+.bmoney { display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); padding: 0 10px; }
+.bmoney span { color: var(--muted); }
+.bmoney input { width: 8.5em; border: 0; background: transparent; padding: 8px 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; outline: none; }
+.bmoney:focus-within { outline: 3px solid var(--accent); outline-offset: 1px; }
+
+/* Fixed expenses */
+.fijos-total .big { display: block; font-weight: 700; font-size: 2rem; font-variant-numeric: tabular-nums; }
+.fijo { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.fijo .what { min-width: 0; }
+.fijo .cat { font-weight: 600; }
+.fijo .meta { display: block; color: var(--muted); font-size: .85rem; }
+.fijo.paused .cat, .fijo.paused .num { color: var(--muted); }
+.fijo-acts { grid-column: 1 / -1; display: flex; gap: 4px 14px; flex-wrap: wrap; }
+.link { border: 0; background: transparent; color: var(--accent); font-weight: 600; font-size: .9rem; padding: 8px 0; min-height: 40px; }
+.tag-fijo { color: var(--accent); }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field span { font-size: .85rem; color: var(--muted); }
+.field input, .field select { min-width: 0; width: 100%; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); padding: 10px 12px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* Tab bar */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 8;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
+}
+.tabbar button { border: 0; background: transparent; color: var(--muted); display: grid; justify-items: center; gap: 2px; padding: 8px 2px 6px; font-size: .7rem; font-weight: 600; min-height: 52px; }
+.tabbar svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tabbar button[aria-current="true"] { color: var(--accent); }
+
 #toast {
   position: fixed; left: 50%; transform: translateX(-50%); z-index: 10;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(68px + env(safe-area-inset-bottom, 0px));
   background: var(--ink); color: var(--bg); border-radius: 12px; padding: 10px 12px 10px 16px;
-  display: flex; gap: 14px; align-items: center; box-shadow: 0 6px 20px rgba(0,0,0,.25); max-width: calc(100% - 32px);
+  display: flex; gap: 14px; align-items: center; box-shadow: 0 6px 20px rgba(0,0,0,.25);
+  width: max-content; max-width: calc(100% - 32px);
 }
-#toast button { border: 0; background: transparent; color: var(--bg); font-weight: 600; text-decoration: underline; padding: 6px; }
+#toast.warn { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn); }
+#toast.err { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger); }
+#toast button { border: 0; background: transparent; color: inherit; font-weight: 600; text-decoration: underline; padding: 6px; }
 @media (prefers-reduced-motion: no-preference) { .fill { transition: width .3s ease; } }

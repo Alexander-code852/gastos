@@ -99,6 +99,10 @@ test("budget warning fires when crossing 100%, even from below 80%", () => {
   assert.deepEqual(avisoPresupuesto(5000, 11200, 10000), { tipo: "pasado", monto: 1200 });
 });
 
+test("budget warning fires when going over from exactly the limit", () => {
+  assert.deepEqual(avisoPresupuesto(10000, 10500, 10000), { tipo: "pasado", monto: 500 });
+});
+
 test("budget warning stays quiet when no threshold is crossed", () => {
   assert.equal(avisoPresupuesto(1000, 2000, 10000), null);
   assert.equal(avisoPresupuesto(8500, 9000, 10000), null);
@@ -158,6 +162,12 @@ test("paused fixed expenses generate nothing", () => {
 test("initial month: include this month starts from the previous one", () => {
   assert.equal(ultimoMesInicial(new Date(2026, 0, 10), true), "2025-12");
   assert.equal(ultimoMesInicial(new Date(2026, 0, 10), false), "2026-01");
+});
+
+test("CSV neutralizes notes that Excel would run as formulas", () => {
+  const csv = aCSV([{ fecha: "2026-10-01", monto: 1, cat: "otros", medio: "efectivo", nota: "=HYPERLINK(\"x\")", hormiga: false }]);
+  assert.ok(!/;=HYPERLINK/.test(csv) && !/;"=HYPERLINK/.test(csv));
+  assert.match(csv, /'=HYPERLINK/);
 });
 
 test("CSV quotes notes with separators", () => {
