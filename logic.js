@@ -244,3 +244,34 @@ export function aCSV(gastos) {
   }
   return "﻿" + rows.map(r => r.map(csvCell).join(";")).join("\r\n");
 }
+
+// Quick-add buttons: what was entered at least twice in the last 60 days with the same category, amount and payment.
+// Fixed expenses and installment purchases are left out: they are not typed by hand.
+export function frecuentes(gastos, hoy = new Date(), n = 4) {
+  const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 60);
+  const desde = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const grupos = new Map();
+  for (const g of gastos) {
+    if (g.fijoId || g.cuotas > 1 || g.fecha < desde) continue;
+    const k = `${g.cat}|${g.monto}|${g.medio}`;
+    const x = grupos.get(k);
+    if (!x) grupos.set(k, { cat: g.cat, monto: g.monto, medio: g.medio, hormiga: !!g.hormiga, veces: 1, ultima: g.fecha });
+    else {
+      x.veces++;
+      if (g.fecha >= x.ultima) { x.ultima = g.fecha; x.hormiga = !!g.hormiga; }
+    }
+  }
+  return [...grupos.values()].filter(x => x.veces >= 2)
+    .sort((a, b) => b.veces - a.veces || b.ultima.localeCompare(a.ultima)).slice(0, n)
+    .map(({ ultima, ...x }) => x);
+}
+
+const plano = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+// Expenses of any month whose note, category or payment label contains the text, newest first.
+export function buscar(gastos, texto) {
+  const q = plano(texto).trim();
+  if (!q) return [];
+  return gastos.filter(g => plano(`${g.nota ?? ""} ${CAT[g.cat]?.label ?? g.cat} ${MEDIO[g.medio] ?? g.medio}`).includes(q))
+    .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.ts - a.ts);
+}

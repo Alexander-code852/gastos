@@ -45,6 +45,11 @@
       <p class="proy" id="proy"></p>
     </section>
 
+    <section class="rapidos" id="rapidos" aria-labelledby="rapidosLbl" hidden>
+      <span class="lbl" id="rapidosLbl">Cargar de nuevo, con un toque</span>
+      <div class="rapidos-row" id="rapidosBtns"></div>
+    </section>
+
     <form id="form" novalidate>
       <label for="monto" class="lbl" id="formTitle">Nuevo gasto</label>
       <div class="monto-row"><span aria-hidden="true">$</span><input id="monto" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Monto en pesos"></div>
@@ -73,7 +78,15 @@
 
     <section class="card"><h2>Por categoría</h2><div class="bars" id="porCat"></div></section>
     <section class="card"><h2>Por medio de pago</h2><div class="bars" id="porMedio"></div></section>
-    <section class="card"><h2>Movimientos</h2><div id="lista"></div></section>
+    <section class="card">
+      <h2>Movimientos</h2>
+      <label class="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+        <input type="search" id="buscar" placeholder="Buscar en todos los meses" aria-label="Buscar gastos por nota, categoría o medio de pago, en todos los meses" autocomplete="off" enterkeyhint="search">
+      </label>
+      <div id="resultados" aria-live="polite" hidden></div>
+      <div id="lista"></div>
+    </section>
   </section>
 
   <!-- Presupuestos -->

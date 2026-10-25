@@ -1,6 +1,6 @@
 import { CATS, CAT, MEDIOS, MEDIO, parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
   estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial,
-  serieMensual, compararCategorias, escalaY } from "./logic.js";
+  serieMensual, compararCategorias, escalaY, frecuentes, buscar } from "./logic.js";
 
 const KEYS = { gastos: "gastos.v1", presupuestos: "gastos.presupuestos", fijos: "gastos.fijos" };
 const BACKUP_KEY = "gastos.ultimaCopia", TAB_KEY = "gastos.tab", RANGO_KEY = "gastos.rango";
@@ -179,32 +179,73 @@ function renderGastos(movs, r) {
     const box = el("div", "dia");
     const h = el("div", "dia-h");
     h.append(el("span", null, dayFmt.format(new Date(f + "T12:00"))), el("span", "num", fmt(items.reduce((s, g) => s + g.monto, 0))));
-    box.append(h, ...items.map(g => {
-      const row = el("div", "item" + (Date.now() - g.ts < 1500 ? " nuevo" : ""));
-      const edit = el("button", "edit");
-      edit.type = "button";
-      const what = el("span", "what");
-      what.append(el("span", "cat", CAT[g.cat]?.label ?? g.cat));
-      if (g.hormiga) what.append(el("span", "tag", "hormiga"));
-      if (g.fijoId) what.append(el("span", "tag tag-fijo", "fijo"));
-      const meta = [MEDIO[g.medio], g.cuota ? `cuota ${g.cuota}/${g.cuotas}` : "", g.nota].filter(Boolean).join(" · ");
-      if (meta) what.append(el("span", "meta", meta));
-      edit.append(what, el("span", "num", fmt(g.monto)));
-      edit.setAttribute("aria-label", `Editar ${CAT[g.cat]?.label ?? g.cat} ${fmt(g.monto)}`);
-      edit.onclick = () => startEdit(g.id);
-      const del = el("button", "del", "Borrar");
-      del.type = "button"; del.setAttribute("aria-label", `Borrar ${CAT[g.cat]?.label ?? g.cat} ${fmt(g.monto)}`);
-      del.onclick = () => borrar(g.id);
-      row.append(edit, del);
-      return row;
-    }));
+    box.append(h, ...items.map(g => itemRow(g)));
     return box;
   }) : [el("p", "empty", `No hay gastos en ${$("mes").textContent.toLowerCase()}. Cargá el primero arriba.`)]));
+  renderBusqueda();
+  renderRapidos();
 
   const last = Number(localStorage.getItem(BACKUP_KEY)) || 0;
   const diasSinCopia = (Date.now() - last) / 864e5;
   $("banner").hidden = !S.gastos.length || diasSinCopia < 14;
   $("bannerTxt").textContent = last ? `Hace ${Math.floor(diasSinCopia)} días que no guardás una copia.` : "Todavía no guardaste una copia de tus datos.";
+}
+
+// One expense in a list; search results also show its date and, for installment purchases, the total.
+function itemRow(g, conFecha = false) {
+  const row = el("div", "item" + (Date.now() - g.ts < 1500 ? " nuevo" : ""));
+  const edit = el("button", "edit");
+  edit.type = "button";
+  const what = el("span", "what");
+  what.append(el("span", "cat", CAT[g.cat]?.label ?? g.cat));
+  if (g.hormiga) what.append(el("span", "tag", "hormiga"));
+  if (g.fijoId) what.append(el("span", "tag tag-fijo", "fijo"));
+  const cuotas = g.cuota ? `cuota ${g.cuota}/${g.cuotas}` : conFecha && g.cuotas > 1 ? `${g.cuotas} cuotas` : "";
+  const meta = [conFecha ? dayFmt.format(new Date(g.fecha + "T12:00")) : "", MEDIO[g.medio], cuotas, g.nota].filter(Boolean).join(" · ");
+  if (meta) what.append(el("span", "meta", meta));
+  edit.append(what, el("span", "num", fmt(g.monto)));
+  edit.setAttribute("aria-label", `Editar ${CAT[g.cat]?.label ?? g.cat} ${fmt(g.monto)}`);
+  edit.onclick = () => startEdit(g.id);
+  const del = el("button", "del", "Borrar");
+  del.type = "button"; del.setAttribute("aria-label", `Borrar ${CAT[g.cat]?.label ?? g.cat} ${fmt(g.monto)}`);
+  del.onclick = () => borrar(g.id);
+  row.append(edit, del);
+  return row;
+}
+
+// Search runs over every month, grouped by month with the total found.
+function renderBusqueda() {
+  const q = $("buscar").value.trim();
+  $("lista").hidden = !!q;
+  $("resultados").hidden = !q;
+  if (!q) return;
+  const res = buscar(S.gastos, q);
+  if (!res.length) { $("resultados").replaceChildren(el("p", "empty", `No hay gastos que coincidan con "${q}".`)); return; }
+  const porMes = {};
+  for (const g of res) (porMes[g.fecha.slice(0, 7)] ||= []).push(g);
+  const total = el("p", "res-total");
+  total.append(res.length === 1 ? "1 gasto · " : `${res.length} gastos · `, el("strong", "num", fmt(res.reduce((s, g) => s + g.monto, 0))));
+  $("resultados").replaceChildren(total, ...Object.entries(porMes).map(([ym, gs]) => {
+    const box = el("div", "dia"), h = el("div", "dia-h");
+    h.append(el("span", null, monthFmt.format(new Date(ym + "-15T12:00"))), el("span", "num", fmt(gs.reduce((s, g) => s + g.monto, 0))));
+    box.append(h, ...gs.map(g => itemRow(g, true)));
+    return box;
+  }));
+}
+$("buscar").addEventListener("input", renderBusqueda);
+
+function renderRapidos() {
+  const fr = frecuentes(S.gastos, new Date());
+  $("rapidos").hidden = !fr.length;
+  $("rapidosBtns").replaceChildren(...fr.map(f => {
+    const b = el("button", "rapido"), label = CAT[f.cat]?.label ?? f.cat, monto = fmt(f.monto).replace(/,00$/, "");
+    b.type = "button";
+    b.append(el("span", "r-cat", label), el("span", "r-monto num", monto), el("span", "r-medio", MEDIO[f.medio] ?? f.medio));
+    b.setAttribute("aria-label", `Cargar ${label} ${monto} con ${MEDIO[f.medio] ?? f.medio}, con fecha de hoy`);
+    b.onclick = () => guardarGasto({ monto: f.monto, cat: f.cat, medio: f.medio, cuotas: 1, nota: "", fecha: today(), hormiga: f.hormiga },
+      null, { gastos: S.gastos });
+    return b;
+  }));
 }
 
 function resetForm() {
@@ -264,21 +305,26 @@ $("form").addEventListener("submit", ev => {
   const data = { monto, cat, medio, cuotas: medio === "credito" ? Number($("cuotas").value) : 1,
     nota: $("nota").value.trim(), fecha, hormiga: $("esHormiga").checked };
   const wasEditing = editingId;
+  if (!guardarGasto(data, wasEditing)) return;
+  resetForm();
+  if (!wasEditing) $("monto").focus();
+});
+
+// Saves a new or edited expense and reports it with the budget warnings of the month it lands in.
+function guardarGasto(data, wasEditing = null, undo = null) {
   const next = wasEditing
     ? S.gastos.map(g => g.id === wasEditing ? { ...g, ...data } : g)
     : [...S.gastos, { id: crypto.randomUUID(), ts: Date.now(), ...data }];
-  const [y, m] = fecha.split("-").map(Number);
+  const [y, m] = data.fecha.split("-").map(Number);
   const antes = totalesDelMes(S.gastos, y, m - 1);
-  if (!commit({ gastos: next })) return;
-  const warn = avisos(antes, totalesDelMes(next, y, m - 1), cat);
+  if (!commit({ gastos: next })) return false;
+  const warn = avisos(antes, totalesDelMes(next, y, m - 1), data.cat);
   const otroMes = y !== view.y || m - 1 !== view.m;
-  const savedCat = CAT[cat].label;
-  resetForm();
   const ok = wasEditing ? "Cambios guardados." : otroMes
-    ? `Guardado en ${monthFmt.format(new Date(fecha + "T12:00")).toLowerCase()}.` : `Guardado: ${fmt(monto)} en ${savedCat}.`;
-  say(warn.length ? `${ok} ${warn.join(" ")}` : ok, warn.some(w => w.startsWith("Te pasaste")) ? "err" : warn.length ? "warn" : "");
-  if (!wasEditing) $("monto").focus();
-});
+    ? `Guardado en ${monthFmt.format(new Date(data.fecha + "T12:00")).toLowerCase()}.` : `Guardado: ${fmt(data.monto)} en ${CAT[data.cat].label}.`;
+  say(warn.length ? `${ok} ${warn.join(" ")}` : ok, warn.some(w => w.startsWith("Te pasaste")) ? "err" : warn.length ? "warn" : "", undo);
+  return true;
+}
 
 $("cancelar").onclick = resetForm;
 $("monto").addEventListener("input", renderForm);
