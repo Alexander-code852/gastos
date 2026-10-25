@@ -1030,7 +1030,9 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
 /* ---------- Instalar ---------- */
 // Chrome and Android hand over a prompt; Safari on iPhone never does, so there the button explains the Share menu.
 let installPrompt = null;
-$("instalar").hidden = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const INSTALAR_KEY = "gastos.instalarCerrado";
+$("instalar").hidden = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true || !!localStorage.getItem(INSTALAR_KEY);
+$("instalarX").onclick = () => { $("instalar").hidden = true; localStorage.setItem(INSTALAR_KEY, "1"); };
 addEventListener("beforeinstallprompt", e => { e.preventDefault(); installPrompt = e; });
 addEventListener("appinstalled", () => { $("instalar").hidden = true; });
 $("instalarBtn").onclick = async () => {

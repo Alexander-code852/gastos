@@ -26,9 +26,11 @@
 <main class="wrap">
   <!-- Gastos -->
   <section class="tab" id="tab-gastos" data-tab="gastos">
+    <div class="gcol">
     <div class="banner" id="instalar" hidden>
       <span>Instalá la app en tu pantalla de inicio.</span>
       <button type="button" id="instalarBtn">Instalar</button>
+      <button class="x" type="button" id="instalarX" aria-label="Cerrar">×</button>
     </div>
     <div class="banner" id="banner" hidden>
       <span id="bannerTxt"></span>
@@ -101,6 +103,9 @@
       </form>
     </section>
 
+    </div>
+
+    <div class="gcol">
     <section class="card"><h2>Por categoría</h2><div class="bars" id="porCat"></div></section>
     <section class="card"><h2>Por medio de pago</h2><div class="bars" id="porMedio"></div></section>
     <section class="card">
@@ -112,6 +117,7 @@
       <div id="resultados" aria-live="polite" hidden></div>
       <div id="lista"></div>
     </section>
+    </div>
   </section>
 
   <!-- Presupuestos -->

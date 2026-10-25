@@ -53,6 +53,8 @@ body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 var(
   padding-block: 4px calc(104px + env(safe-area-inset-bottom, 0px));
 }
 .tab { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+/* Gastos columns only exist on wide screens; on phones their children sit straight in the tab. */
+.gcol { display: contents; }
 h1, h2 { font-family: var(--display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
 h2 { font-size: 1.15rem; font-weight: 700; margin-bottom: 12px; }
 .lbl { font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 700; }
@@ -77,6 +79,15 @@ button { cursor: pointer; }
 .nav { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); font-size: 1.5rem; line-height: 1; box-shadow: var(--shadow); transition: transform .2s var(--spring), background .2s; }
 
 .banner { background: var(--ant-soft); border-radius: 16px; padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; }
+#instalar { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding-right: 6px; }
+#instalar span { grid-row: 1; }
+#instalar #instalarBtn { grid-row: 2; justify-self: start; }
+#instalar .x { grid-row: 1; grid-column: 2; background: transparent; color: var(--muted); padding: 0; align-self: start; margin-top: -6px; }
+@media (min-width: 400px) {
+  #instalar { grid-template-columns: minmax(0, 1fr) auto auto; }
+  #instalar #instalarBtn { grid-row: 1; }
+  #instalar .x { grid-column: 3; align-self: center; margin-top: 0; }
+}
 .banner button { border: 0; background: var(--ant); color: #fff; border-radius: 12px; padding: 8px 14px; font-weight: 700; }
 
 /* Hero: always dark, so it carries its own tokens */
@@ -341,6 +352,21 @@ td.num { font-variant-numeric: tabular-nums; }
 #toast.err { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger); }
 #toast button { border: 0; background: transparent; color: inherit; font-weight: 700; text-decoration: underline; padding: 6px; }
 
+/* Tablet and up: the tab bar stays as wide as the content instead of stretching edge to edge */
+@media (min-width: 600px) {
+  .tabbar {
+    padding-left: max(env(safe-area-inset-left, 0px), calc(50% - 300px));
+    padding-right: max(env(safe-area-inset-right, 0px), calc(50% - 300px));
+  }
+}
+/* Computer: Gastos in two columns, Meses uses the full width, forms stay readable */
+@media (min-width: 960px) {
+  .wrap, .top { max-width: 1040px; }
+  #tab-gastos { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .gcol { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; min-width: 0; }
+  #tab-presupuestos, #tab-fijos, #tab-copia { width: 100%; max-width: 640px; margin-inline: auto; }
+}
+
 /* Motion: only for people who did not ask the system to reduce it */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
@@ -357,11 +383,12 @@ td.num { font-variant-numeric: tabular-nums; }
 
   /* "backwards" so no transform is left behind once the entrance ends */
   .tab:not([hidden]) > * { animation: rise .5s var(--ease) backwards; }
-  .tab > :nth-child(2) { animation-delay: 50ms; }
-  .tab > :nth-child(3) { animation-delay: 100ms; }
-  .tab > :nth-child(4) { animation-delay: 150ms; }
-  .tab > :nth-child(5) { animation-delay: 200ms; }
-  .tab > :nth-child(n+6) { animation-delay: 250ms; }
+  .tab:not([hidden]) > .gcol > * { animation: rise .5s var(--ease) backwards; }
+  :is(.tab, .gcol) > :nth-child(2) { animation-delay: 50ms; }
+  :is(.tab, .gcol) > :nth-child(3) { animation-delay: 100ms; }
+  :is(.tab, .gcol) > :nth-child(4) { animation-delay: 150ms; }
+  :is(.tab, .gcol) > :nth-child(5) { animation-delay: 200ms; }
+  :is(.tab, .gcol) > :nth-child(n+6) { animation-delay: 250ms; }
   .fill { animation: growX .7s var(--ease) backwards .15s; transition: width .4s var(--ease); }
   .chart .col path { transform-box: fill-box; transform-origin: bottom; animation: growY .6s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 45ms); }
   .chart .val, .tip:not([hidden]) { animation: fade .3s ease backwards; }
