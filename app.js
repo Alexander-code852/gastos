@@ -1026,3 +1026,17 @@ document.addEventListener("visibilitychange", () => {
 
 navigator.storage?.persist?.();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+
+/* ---------- Instalar ---------- */
+// Chrome and Android hand over a prompt; Safari on iPhone never does, so there the button explains the Share menu.
+let installPrompt = null;
+$("instalar").hidden = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); installPrompt = e; });
+addEventListener("appinstalled", () => { $("instalar").hidden = true; });
+$("instalarBtn").onclick = async () => {
+  if (!installPrompt) return say("En Safari tocá Compartir (el cuadrado con la flecha) y después \"Agregar a inicio\".", "info");
+  installPrompt.prompt();
+  const { outcome } = await installPrompt.userChoice;
+  installPrompt = null;
+  if (outcome === "accepted") $("instalar").hidden = true;
+};
