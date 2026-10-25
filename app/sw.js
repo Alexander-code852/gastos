@@ -1,7 +1,8 @@
 // Bump VERSION on every deploy so phones pick up the new files.
-const VERSION = "gastos-v3";
+const VERSION = "gastos-v4";
 const FILES = ["./", "index.html", "style.css", "app.js", "logic.js", "manifest.webmanifest",
-  "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
+  "icon-192.png", "icon-512.png", "apple-touch-icon.png",
+  "fonts/bricolage.woff2", "fonts/figtree.woff2"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
