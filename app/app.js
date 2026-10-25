@@ -427,10 +427,11 @@ $("sheet").addEventListener("cancel", e => { e.preventDefault(); cerrarSheet(); 
 $("sheet").addEventListener("click", e => { if (e.target === $("sheet")) cerrarSheet(); });
 $("sheetClose").onclick = cerrarSheet;
 {
-  const head = $("sheetHead"), d = $("sheet");
+  const head = $("sheetHead"), d = $("sheet"), wide = matchMedia("(min-width: 960px)");
   let y0 = null;
   head.addEventListener("pointerdown", e => {
-    if (e.target.closest("button")) return;
+    // On wide screens the sheet is a centered dialog, so dragging it down makes no sense.
+    if (e.target.closest("button") || wide.matches) return;
     y0 = e.clientY;
     try { head.setPointerCapture(e.pointerId); } catch {}
     d.classList.add("drag");
