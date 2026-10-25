@@ -113,8 +113,8 @@ form.editing { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-s
 .chip[aria-checked="true"] .dot { background: var(--accent-ink); }
 .cuotas-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .cuotas-row select { border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 8px 10px; }
-.row2 { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
-.row2 input { min-width: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 10px 12px; transition: border-color .2s; }
+.row2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.row2 input { min-width: 0; width: 100%; min-height: 46px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 10px 12px; transition: border-color .2s; }
 .row2 input:focus { border-color: var(--accent); outline: none; }
 .check { display: flex; align-items: center; gap: 10px; font-size: .95rem; }
 .check input { width: 22px; height: 22px; accent-color: var(--ant); }
