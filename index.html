@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Gastos Hormiga</title>
 <meta name="description" content="Registro de gastos, gastos hormiga, presupuestos y gastos fijos">
-<meta name="theme-color" content="#f2f4ef" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#121814" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1310" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -71,9 +71,9 @@
       </div>
     </form>
 
-    <section><h2>Por categoría</h2><div class="bars" id="porCat"></div></section>
-    <section><h2>Por medio de pago</h2><div class="bars" id="porMedio"></div></section>
-    <section><h2>Movimientos</h2><div id="lista"></div></section>
+    <section class="card"><h2>Por categoría</h2><div class="bars" id="porCat"></div></section>
+    <section class="card"><h2>Por medio de pago</h2><div class="bars" id="porMedio"></div></section>
+    <section class="card"><h2>Movimientos</h2><div id="lista"></div></section>
   </section>
 
   <!-- Presupuestos -->
@@ -98,7 +98,7 @@
         <div class="table-wrap"><table id="mesesTabla"><thead><tr><th scope="col">Mes</th><th scope="col">Total</th><th scope="col">Hormiga</th></tr></thead><tbody></tbody></table></div>
       </details>
     </section>
-    <section>
+    <section class="card">
       <h2>Por categoría, contra el mes anterior</h2>
       <div class="table-wrap"><table class="cmp" id="cmpTabla"></table></div>
     </section>

@@ -55,6 +55,23 @@ function el(tag, cls, text) {
   return e;
 }
 
+const calm = matchMedia("(prefers-reduced-motion: reduce)");
+// Rolls a money figure from what it showed before to the new value.
+function countTo(node, v) {
+  const from = node._v ?? 0, live = node.closest("[aria-live]");
+  node._v = v;
+  cancelAnimationFrame(node._raf);
+  if (calm.matches || from === v) { node.textContent = fmt(v); live?.removeAttribute("aria-busy"); return; }
+  live?.setAttribute("aria-busy", "true"); // screen readers hear the final figure, not every frame
+  const t0 = performance.now();
+  const step = t => {
+    const k = Math.min(1, (t - t0) / 650);
+    node.textContent = fmt(k < 1 ? Math.round(from + (v - from) * (1 - (1 - k) ** 3)) : v);
+    if (k < 1) node._raf = requestAnimationFrame(step); else live?.removeAttribute("aria-busy");
+  };
+  node._raf = requestAnimationFrame(step);
+}
+
 function say(text, kind = "", undo = null) {
   $("toastTxt").textContent = text;
   $("toast").className = kind;
@@ -141,8 +158,8 @@ function renderForm() {
 }
 
 function renderGastos(movs, r) {
-  $("total").textContent = fmt(r.total);
-  $("hTotal").textContent = fmt(r.hormiga);
+  countTo($("total"), r.total);
+  countTo($("hTotal"), r.hormiga);
   $("hPct").textContent = r.total ? `${Math.round(r.hormiga / r.total * 100)}% del total` : "";
   budgetBlock($("budgetTotal"), estadoPresupuesto(r.total, S.presupuestos.total), true);
   budgetBlock($("budgetHormiga"), estadoPresupuesto(r.hormiga, S.presupuestos.hormiga), false);
@@ -163,7 +180,7 @@ function renderGastos(movs, r) {
     const h = el("div", "dia-h");
     h.append(el("span", null, dayFmt.format(new Date(f + "T12:00"))), el("span", "num", fmt(items.reduce((s, g) => s + g.monto, 0))));
     box.append(h, ...items.map(g => {
-      const row = el("div", "item");
+      const row = el("div", "item" + (Date.now() - g.ts < 1500 ? " nuevo" : ""));
       const edit = el("button", "edit");
       edit.type = "button";
       const what = el("span", "what");
@@ -361,7 +378,7 @@ function drawChart(serie) {
   const cols = serie.map((s, i) => {
     const cx = pad.l + band * i + band / 2, x = cx - bw / 2, base = yOf(0);
     const resto = Math.round((s.total - s.hormiga) * 100) / 100;
-    const g = svg("g", { class: "col" });
+    const g = svg("g", { class: "col", style: `--i:${i}` });
     if (s.hormiga > 0) g.append(svg("path", { d: columnPath(x, bw, yOf(s.hormiga), base, resto <= 0), class: "m-hormiga" }));
     if (resto > 0) {
       const bottom = s.hormiga > 0 ? yOf(s.hormiga) - 2 : base; // 2px surface gap between the stacked segments
@@ -490,7 +507,7 @@ fillSelect($("fMedio"), MEDIOS);
 
 function renderFijos() {
   const activos = S.fijos.filter(f => f.activo);
-  $("fijosTotal").textContent = fmt(activos.reduce((s, f) => s + f.monto, 0));
+  countTo($("fijosTotal"), activos.reduce((s, f) => s + f.monto, 0));
   const lista = [...S.fijos].sort((a, b) => (b.activo - a.activo) || a.dia - b.dia);
   $("fijosLista").replaceChildren(...(lista.length ? lista.map(f => {
     const row = el("div", "fijo" + (f.activo ? "" : " paused"));
@@ -640,8 +657,14 @@ function render() {
   const conMes = tab === "gastos" || tab === "presupuestos" || tab === "meses";
   // visibility keeps the title centered while the arrows are not needed
   $("prev").style.visibility = $("next").style.visibility = conMes ? "" : "hidden";
-  $("mes").textContent = conMes ? monthFmt.format(new Date(view.y, view.m, 1))
+  const titulo = conMes ? monthFmt.format(new Date(view.y, view.m, 1))
     : tab === "fijos" ? "Gastos fijos" : "Copia de seguridad";
+  if ($("mes").textContent !== titulo) {
+    $("mes").textContent = titulo;
+    $("mes").classList.remove("swap");
+    void $("mes").offsetWidth; // restart the title animation
+    $("mes").classList.add("swap");
+  }
   if (tab === "meses") renderMeses();
   else if (conMes) {
     const movs = movimientosDelMes(S.gastos, view.y, view.m);
