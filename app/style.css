@@ -284,7 +284,7 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
 
 /* Fixed expenses */
 .fijos-total { background: var(--hero); color: #f4f1ea; border-radius: 26px; padding: 20px 18px; box-shadow: 0 18px 40px -22px rgba(18, 56, 43, .9); }
-.fijos-total .lbl { color: #b3c8bd; }
+.fijos-total .lbl, .fijos-total .sub { color: #b3c8bd; }
 .fijos-total .big { display: block; font-family: var(--display); font-weight: 800; font-size: 2.4rem; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
 #fijosLista:empty { display: none; }
 .fijo { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
@@ -319,6 +319,7 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
 .chart .grid { stroke: var(--grid); stroke-width: 1; }
 .chart .axis { fill: var(--muted); font-size: 10.5px; font-variant-numeric: tabular-nums; }
 .chart .axis.cur { fill: var(--ink); font-weight: 700; }
+.chart .nd { font-size: 9.5px; opacity: .7; }
 .chart .val { fill: var(--ink); font-size: 11px; font-weight: 700; }
 .chart .m-hormiga { fill: var(--c-hormiga); }
 .chart .m-resto { fill: var(--c-resto); }
