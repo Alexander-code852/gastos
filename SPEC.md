@@ -92,3 +92,9 @@ export function fijosPendientes(fijos, hoy) { ... }
 - **Frecuentes:** arriba del formulario, hasta 4 botones con los gastos que más repetiste en los últimos 60 días (misma categoría, monto y medio de pago, al menos 2 veces; sin fijos ni compras en cuotas). Un toque lo guarda con la fecha de hoy y muestra el aviso con "Deshacer" y los avisos de presupuesto.
 - **Búsqueda:** una lupa en Movimientos que busca en todos los meses por nota, categoría o medio de pago, sin importar mayúsculas ni acentos. Muestra los resultados agrupados por mes y el total encontrado; tocar uno lo edita.
 - **Éxito:** tests de `frecuentes()` y `buscar()` en verde; sin desborde a 375 px en claro y oscuro; `VERSION` subida.
+
+## Etapa 4: inflación e ingresos (aprobado 2026-10-25)
+- **Inflación:** en Meses, un interruptor "Ajustar por inflación" (apagado por defecto, se recuerda) pasa cada mes a pesos del último mes con dato del INDEC: `monto × nivel(último) / nivel(mes)`. Los datos son la inflación mensual del INDEC, tomada de `api.argentinadatos.com/v1/finanzas/indices/inflacion`, que es público y no recibe datos del usuario. Se guardan en el teléfono y se renuevan cada 7 días. Sin conexión se usa lo guardado; sin nada guardado, el interruptor avisa y se apaga. Los meses posteriores al último dato no se ajustan.
+- **Ingresos:** lista aparte (`gastos.ingresos`: monto, concepto, fecha). En Gastos, la tarjeta de arriba suma los ingresos del mes y "Te queda" o "Gastaste … más de lo que entró". Abajo del formulario, una tarjeta Ingresos para agregar, editar y borrar (con Deshacer). Si el mes no tiene ingresos y el anterior sí, el botón "Repetir los de <mes>" los copia (el día 31 pasa a 28 o 30 si hace falta).
+- **Copia v3:** incluye los ingresos; las copias v1 y v2 se siguen restaurando.
+- **Éxito:** tests de ajuste, repetición y copia v3; sin desborde a 375 px en claro y oscuro.

@@ -1,9 +1,10 @@
 import { CATS, CAT, MEDIOS, MEDIO, parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
   estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial,
-  serieMensual, compararCategorias, escalaY, frecuentes, buscar } from "./logic.js";
+  serieMensual, compararCategorias, escalaY, frecuentes, buscar, leerIPC, aPesosDe, repetirIngresos } from "./logic.js";
 
-const KEYS = { gastos: "gastos.v1", presupuestos: "gastos.presupuestos", fijos: "gastos.fijos" };
-const BACKUP_KEY = "gastos.ultimaCopia", TAB_KEY = "gastos.tab", RANGO_KEY = "gastos.rango";
+const KEYS = { gastos: "gastos.v1", presupuestos: "gastos.presupuestos", fijos: "gastos.fijos", ingresos: "gastos.ingresos" };
+const BACKUP_KEY = "gastos.ultimaCopia", TAB_KEY = "gastos.tab", RANGO_KEY = "gastos.rango", AJUSTE_KEY = "gastos.ajuste", IPC_KEY = "gastos.ipc";
+const IPC_URL = "https://api.argentinadatos.com/v1/finanzas/indices/inflacion";
 const TABS = ["gastos", "presupuestos", "meses", "fijos", "copia"];
 const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 });
 const fmt = n => money.format(n);
@@ -23,10 +24,12 @@ const S = {
   gastos: read(KEYS.gastos, []),
   presupuestos: { cat: {}, ...read(KEYS.presupuestos, {}) },
   fijos: read(KEYS.fijos, []),
+  ingresos: read(KEYS.ingresos, []),
 };
 let view = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; })();
 let tab = (() => { try { return localStorage.getItem(TAB_KEY) || "gastos"; } catch { return "gastos"; } })();
-let cat = "kiosco", medio = "efectivo", editingId = null, editingFijo = null, undoState = null, toastTimer = 0;
+const ym = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
+let cat = "kiosco", medio = "efectivo", editingId = null, editingFijo = null, editingIngreso = null, undoState = null, toastTimer = 0;
 
 // Writes every changed key first and only then swaps memory; if any write fails, the earlier ones are rolled back.
 function commit(changes) {
@@ -57,16 +60,16 @@ function el(tag, cls, text) {
 
 const calm = matchMedia("(prefers-reduced-motion: reduce)");
 // Rolls a money figure from what it showed before to the new value.
-function countTo(node, v) {
+function countTo(node, v, f = fmt) {
   const from = node._v ?? 0, live = node.closest("[aria-live]");
   node._v = v;
   cancelAnimationFrame(node._raf);
-  if (calm.matches || from === v) { node.textContent = fmt(v); live?.removeAttribute("aria-busy"); return; }
+  if (calm.matches || from === v) { node.textContent = f(v); live?.removeAttribute("aria-busy"); return; }
   live?.setAttribute("aria-busy", "true"); // screen readers hear the final figure, not every frame
   const t0 = performance.now();
   const step = t => {
     const k = Math.min(1, (t - t0) / 650);
-    node.textContent = fmt(k < 1 ? Math.round(from + (v - from) * (1 - (1 - k) ** 3)) : v);
+    node.textContent = f(k < 1 ? Math.round(from + (v - from) * (1 - (1 - k) ** 3)) : v);
     if (k < 1) node._raf = requestAnimationFrame(step); else live?.removeAttribute("aria-busy");
   };
   node._raf = requestAnimationFrame(step);
@@ -159,6 +162,7 @@ function renderForm() {
 
 function renderGastos(movs, r) {
   countTo($("total"), r.total);
+  $("total").style.setProperty("--n", fmt(r.total).length);
   countTo($("hTotal"), r.hormiga);
   $("hPct").textContent = r.total ? `${Math.round(r.hormiga / r.total * 100)}% del total` : "";
   budgetBlock($("budgetTotal"), estadoPresupuesto(r.total, S.presupuestos.total), true);
@@ -167,6 +171,8 @@ function renderGastos(movs, r) {
   proy.replaceChildren();
   if (r.proyeccionAnual) proy.append(r.isCurrent ? "A este ritmo, tus gastos hormiga suman " : "A ese ritmo, los gastos hormiga sumarían ",
     el("strong", null, fmt(r.proyeccionAnual)), " al año.");
+
+  renderIngresos(r.total);
 
   bars($("porCat"), r.porCat, id => CAT[id]?.label ?? id, id => CAT[id]?.h);
   bars($("porMedio"), r.porMedio, id => MEDIO[id] ?? id);
@@ -247,6 +253,101 @@ function renderRapidos() {
     return b;
   }));
 }
+
+/* ---------- Ingresos ---------- */
+
+const fechaIngresoDefault = () => ym(view.y, view.m) === today().slice(0, 7) ? today() : `${ym(view.y, view.m)}-01`;
+
+function renderIngresos(gastado) {
+  const k = ym(view.y, view.m);
+  const delMes = S.ingresos.filter(x => x.fecha.startsWith(k)).sort((a, b) => b.fecha.localeCompare(a.fecha) || b.ts - a.ts);
+  const total = delMes.reduce((s, x) => s + x.monto, 0);
+  $("saldo").hidden = !delMes.length;
+  if (delMes.length) {
+    const queda = Math.round((total - gastado) * 100) / 100;
+    // whole pesos, sized by length in CSS: two figures share the card's width
+    for (const [id, v] of [["ingTotal", total], ["queda", Math.abs(queda)]]) {
+      countTo($(id), v, pesos);
+      $(id).style.setProperty("--n", pesos(v).length);
+    }
+    $("quedaLbl").textContent = queda >= 0 ? "Te queda" : "Gastaste de más";
+    $("saldo").classList.toggle("neg", queda < 0);
+  }
+  $("ingMes").textContent = delMes.length ? fmt(total) : "";
+  $("ingLista").replaceChildren(...delMes.map(x => {
+    const row = el("div", "item" + (Date.now() - x.ts < 1500 ? " nuevo" : ""));
+    const edit = el("button", "edit");
+    edit.type = "button";
+    const what = el("span", "what");
+    what.append(el("span", "cat", x.concepto), el("span", "meta", dayFmt.format(new Date(x.fecha + "T12:00"))));
+    edit.append(what, el("span", "num ing-monto", `+ ${fmt(x.monto)}`));
+    edit.setAttribute("aria-label", `Editar ingreso ${x.concepto} ${fmt(x.monto)}`);
+    edit.onclick = () => editarIngreso(x.id);
+    const del = el("button", "del", "Borrar");
+    del.type = "button"; del.setAttribute("aria-label", `Borrar ingreso ${x.concepto} ${fmt(x.monto)}`);
+    del.onclick = () => borrarIngreso(x.id);
+    row.append(edit, del);
+    return row;
+  }));
+  const copia = delMes.length ? [] : repetirIngresos(S.ingresos, view.y, view.m);
+  $("repetir").hidden = !copia.length;
+  if (copia.length) {
+    const prev = new Date(view.y, view.m - 1, 1);
+    $("repetir").textContent = `Repetir los de ${monthFmt.format(prev).split(" ")[0].toLowerCase()} (${fmt(copia.reduce((s, x) => s + x.monto, 0))})`;
+    $("repetir").onclick = () => {
+      const prevState = { ingresos: S.ingresos };
+      if (commit({ ingresos: [...S.ingresos, ...copia] }))
+        say(copia.length === 1 ? "Copiaste 1 ingreso. Tocalo para cambiar el monto." : `Copiaste ${copia.length} ingresos. Tocalos para cambiar los montos.`, "", prevState);
+    };
+  }
+  if (!editingIngreso && !$("iFecha").value.startsWith(k)) $("iFecha").value = fechaIngresoDefault();
+}
+
+function resetIngresoForm() {
+  editingIngreso = null;
+  $("ingForm").reset();
+  $("ingForm").classList.remove("editing");
+  $("iFecha").value = fechaIngresoDefault();
+  $("iGuardar").textContent = "Agregar ingreso";
+  $("iCancelar").hidden = true;
+}
+
+function editarIngreso(id) {
+  const x = S.ingresos.find(i => i.id === id);
+  if (!x) return;
+  editingIngreso = id;
+  $("iConcepto").value = x.concepto;
+  $("iMonto").value = inputFmt(x.monto);
+  $("iFecha").value = x.fecha;
+  $("ingForm").classList.add("editing");
+  $("iGuardar").textContent = "Guardar cambios";
+  $("iCancelar").hidden = false;
+  $("iMonto").focus();
+}
+
+function borrarIngreso(id) {
+  const x = S.ingresos.find(i => i.id === id);
+  const prev = { ingresos: S.ingresos };
+  if (!x || !commit({ ingresos: S.ingresos.filter(i => i.id !== id) })) return;
+  if (editingIngreso === id) resetIngresoForm();
+  say(`Borraste el ingreso de ${fmt(x.monto)}`, "", prev);
+}
+
+$("ingForm").addEventListener("submit", ev => {
+  ev.preventDefault();
+  const monto = parseMonto($("iMonto").value);
+  if (isNaN(monto)) { say("Escribí un monto mayor a cero, por ejemplo 850000 o 850.000.", "err"); $("iMonto").focus(); return; }
+  const data = { monto, concepto: $("iConcepto").value.trim() || "Ingreso", fecha: $("iFecha").value || fechaIngresoDefault() };
+  const wasEditing = editingIngreso;
+  const next = wasEditing
+    ? S.ingresos.map(x => x.id === wasEditing ? { ...x, ...data } : x)
+    : [...S.ingresos, { id: crypto.randomUUID(), ts: Date.now(), ...data }];
+  if (!commit({ ingresos: next })) return;
+  resetIngresoForm();
+  const otroMes = !data.fecha.startsWith(ym(view.y, view.m));
+  say(wasEditing ? "Ingreso actualizado." : otroMes ? `Ingreso guardado en ${monthFmt.format(new Date(data.fecha + "T12:00")).toLowerCase()}.` : `Ingreso guardado: ${fmt(monto)}.`);
+});
+$("iCancelar").onclick = resetIngresoForm;
 
 function resetForm() {
   editingId = null;
@@ -491,7 +592,13 @@ function renderMeses() {
     try { localStorage.setItem(RANGO_KEY, String(n)); } catch {}
     render();
   });
-  const serie = serieMensual(S.gastos, view.y, view.m, rango);
+  const ajuste = $("ajuste").checked && ipc;
+  const adj = (v, y, m) => ajuste ? aPesosDe(v, y, m, ipc) : v;
+  const serie = serieMensual(S.gastos, view.y, view.m, rango)
+    .map(s => ajuste ? { ...s, total: adj(s.total, s.y, s.m), hormiga: adj(s.hormiga, s.y, s.m) } : s);
+  const [uy, um] = ipc ? ipc.ultimo.split("-").map(Number) : [];
+  $("ajusteInfo").textContent = !$("ajuste").checked ? "" : !ipc ? "Bajando los datos de inflación…"
+    : `Todo en pesos de ${monthFmt.format(new Date(uy, um - 1, 1)).toLowerCase()}, el último mes que publicó el INDEC. Los meses siguientes van sin ajustar. Fuente: INDEC, vía ArgentinaDatos.`;
   const desde = serie.findIndex(s => s.total > 0);
   const conDatos = desde < 0 ? [] : serie.slice(desde);
   if (conDatos.length) {
@@ -520,8 +627,12 @@ function renderMeses() {
     return tr;
   }));
 
-  const rows = compararCategorias(S.gastos, view.y, view.m);
   const prev = new Date(view.y, view.m - 1, 1);
+  const rows = compararCategorias(S.gastos, view.y, view.m).map(r => {
+    if (!ajuste) return r;
+    const actual = adj(r.actual, view.y, view.m), anterior = adj(r.anterior, prev.getFullYear(), prev.getMonth());
+    return { ...r, actual, anterior, delta: Math.round((actual - anterior) * 100) / 100 };
+  });
   const thead = el("thead"), hr = el("tr");
   for (const h of ["Categoría", cap(mesCorto(view.y, view.m)), cap(mesCorto(prev.getFullYear(), prev.getMonth()))]) {
     const th = el("th", null, h); th.scope = "col"; hr.append(th);
@@ -671,8 +782,8 @@ async function guardarArchivo(nombre, texto, tipo) {
 }
 
 async function exportar() {
-  const json = JSON.stringify({ app: "gastos-hormiga", version: 2, exportado: new Date().toISOString(),
-    gastos: S.gastos, presupuestos: S.presupuestos, fijos: S.fijos }, null, 1);
+  const json = JSON.stringify({ app: "gastos-hormiga", version: 3, exportado: new Date().toISOString(),
+    gastos: S.gastos, presupuestos: S.presupuestos, fijos: S.fijos, ingresos: S.ingresos }, null, 1);
   if (await guardarArchivo(`gastos-${today()}.json`, json, "application/json")) {
     try { localStorage.setItem(BACKUP_KEY, String(Date.now())); } catch {}
     render();
@@ -692,15 +803,43 @@ $("importar").addEventListener("change", async ev => {
     const merge = (cur, inc) => { const m = new Map(cur.map(x => [x.id, x])); for (const x of inc) m.set(x.id, x); return [...m.values()]; };
     const changes = { gastos: merge(S.gastos, r.gastos) };
     if (r.fijos) changes.fijos = merge(S.fijos, r.fijos);
+    if (r.ingresos) changes.ingresos = merge(S.ingresos, r.ingresos);
     if (r.presupuestos) changes.presupuestos = r.presupuestos;
     if (commit(changes)) {
       aplicarFijos();
-      say(`Restauraste ${r.gastos.length} gastos${r.fijos ? `, ${r.fijos.length} fijos` : ""}${r.presupuestos ? " y tus presupuestos" : ""}.`);
+      say(`Restauraste ${r.gastos.length} gastos${r.fijos ? `, ${r.fijos.length} fijos` : ""}${r.ingresos ? `, ${r.ingresos.length} ingresos` : ""}${r.presupuestos ? " y tus presupuestos" : ""}.`);
     }
   } catch (e) {
     say(e instanceof SyntaxError ? "Ese archivo no es una copia de seguridad válida." : e.message, "err");
   }
 });
+
+// Inflation data: kept on the phone, refreshed at most once a week; no user data is sent.
+let ipc = (() => { try { return leerIPC(read(IPC_KEY, null)?.data); } catch { return null; } })();
+async function cargarIPC() {
+  const cache = read(IPC_KEY, null);
+  if (ipc && cache && Date.now() - cache.ts < 7 * 864e5) return;
+  try {
+    const res = await fetch(IPC_URL);
+    if (!res.ok) throw new Error(res.status);
+    const data = (await res.json()).filter?.(x => x?.fecha >= "2015"); // older months are never charted
+    ipc = leerIPC(data);
+    try { localStorage.setItem(IPC_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
+  } catch {
+    if (ipc) return; // stale data is better than none
+    $("ajuste").checked = false;
+    try { localStorage.setItem(AJUSTE_KEY, "0"); } catch {}
+    say("No se pudieron bajar los datos de inflación. Probá de nuevo cuando tengas conexión.", "err");
+  }
+  if (tab === "meses") render();
+}
+$("ajuste").checked = (() => { try { return localStorage.getItem(AJUSTE_KEY) === "1"; } catch { return false; } })();
+$("ajuste").addEventListener("change", () => {
+  try { localStorage.setItem(AJUSTE_KEY, $("ajuste").checked ? "1" : "0"); } catch {}
+  render();
+  if ($("ajuste").checked) cargarIPC();
+});
+if ($("ajuste").checked) cargarIPC();
 
 /* ---------- render ---------- */
 
@@ -733,6 +872,7 @@ $("fecha").value = fechaAuto;
 $("esHormiga").checked = CAT[cat].h;
 renderForm();
 resetFijoForm();
+resetIngresoForm();
 showTab(TABS.includes(tab) ? tab : "gastos");
 const creados = aplicarFijos();
 if (creados) say(creados === 1 ? "Se cargó 1 gasto fijo." : `Se cargaron ${creados} gastos fijos.`);

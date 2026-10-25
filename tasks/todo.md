@@ -35,3 +35,9 @@
 - [x] **10. Búsqueda en la interfaz** (S: index.html, style.css, app.js): lupa, resultados por mes con total, tocar edita.
 - [x] **11. Ícono** (XS: íconos PNG): generado desde un SVG con Chrome sin ventana.
 - [x] **12. Revisión y publicación.**
+
+## Etapa 4
+- [x] **13. Lógica** (S: logic.js, logic.test.mjs): `leerIPC`, `aPesosDe`, `repetirIngresos`, copia v3.
+- [x] **14. Ingresos en la interfaz** (M: index.html, style.css, app.js).
+- [x] **15. Inflación en Meses** (S: index.html, app.js).
+- [x] **16. Revisión y publicación.**

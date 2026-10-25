@@ -1,5 +1,5 @@
 // Bump VERSION on every deploy so phones pick up the new files.
-const VERSION = "gastos-v8";
+const VERSION = "gastos-v9";
 const FILES = ["./", "index.html", "style.css", "app.js", "logic.js", "manifest.webmanifest",
   "icon-192.png", "icon-512.png", "apple-touch-icon.png",
   "fonts/bricolage.woff2", "fonts/figtree.woff2"];

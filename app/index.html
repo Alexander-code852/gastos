@@ -42,6 +42,10 @@
         <span class="val" id="hTotal">$ 0</span><span class="sub" id="hPct"></span>
         <div class="budget" id="budgetHormiga" hidden></div>
       </div>
+      <div class="saldo" id="saldo" hidden>
+        <div><span class="lbl">Ingresos</span><span class="val num" id="ingTotal">$ 0</span></div>
+        <div><span class="lbl" id="quedaLbl">Te queda</span><span class="val num" id="queda">$ 0</span></div>
+      </div>
       <p class="proy" id="proy"></p>
     </section>
 
@@ -76,6 +80,23 @@
       </div>
     </form>
 
+    <section class="card" aria-labelledby="ingH">
+      <div class="card-h"><h2 id="ingH">Ingresos</h2><span class="num" id="ingMes"></span></div>
+      <div id="ingLista"></div>
+      <button class="secondary repetir" id="repetir" type="button" hidden></button>
+      <form id="ingForm" class="ing-form" novalidate>
+        <input id="iConcepto" maxlength="40" placeholder="Concepto: sueldo, changa, venta…" aria-label="Concepto del ingreso" autocomplete="off">
+        <div class="row2">
+          <input id="iMonto" inputmode="decimal" placeholder="Monto" aria-label="Monto del ingreso" autocomplete="off">
+          <input id="iFecha" type="date" aria-label="Fecha del ingreso">
+        </div>
+        <div class="actions">
+          <button class="secondary grow" id="iGuardar" type="submit">Agregar ingreso</button>
+          <button class="secondary" id="iCancelar" type="button" hidden>Cancelar</button>
+        </div>
+      </form>
+    </section>
+
     <section class="card"><h2>Por categoría</h2><div class="bars" id="porCat"></div></section>
     <section class="card"><h2>Por medio de pago</h2><div class="bars" id="porMedio"></div></section>
     <section class="card">
@@ -98,6 +119,10 @@
   <!-- Meses -->
   <section class="tab" id="tab-meses" data-tab="meses" hidden>
     <div id="rango" class="chips small" role="radiogroup" aria-label="Cuántos meses ver"></div>
+    <div class="ajuste">
+      <label class="switch"><input type="checkbox" id="ajuste" role="switch"><span>Ajustar por inflación</span></label>
+      <p class="sub" id="ajusteInfo"></p>
+    </div>
     <div class="stats">
       <div class="stat"><span class="lbl">Promedio por mes</span><span class="stat-val" id="mPromedio">—</span><span class="sub" id="mPromedioSub"></span></div>
       <div class="stat"><span class="lbl">Mes más alto</span><span class="stat-val" id="mMax">—</span><span class="sub" id="mMaxSub"></span></div>
