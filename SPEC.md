@@ -98,3 +98,8 @@ export function fijosPendientes(fijos, hoy) { ... }
 - **Ingresos:** lista aparte (`gastos.ingresos`: monto, concepto, fecha). En Gastos, la tarjeta de arriba suma los ingresos del mes y "Te queda" o "Gastaste … más de lo que entró". Abajo del formulario, una tarjeta Ingresos para agregar, editar y borrar (con Deshacer). Si el mes no tiene ingresos y el anterior sí, el botón "Repetir los de <mes>" los copia (el día 31 pasa a 28 o 30 si hace falta).
 - **Copia v3:** incluye los ingresos; las copias v1 y v2 se siguen restaurando.
 - **Éxito:** tests de ajuste, repetición y copia v3; sin desborde a 375 px en claro y oscuro.
+
+## Etapa 5: deslizar para borrar y detalle por categoría (aprobado 2026-10-25)
+- **Deslizar:** en Movimientos, resultados de búsqueda e ingresos, deslizar una fila a la izquierda descubre un botón rojo "Borrar"; deslizarla más de la mitad borra directo. Siempre con "Deshacer". El botón gris desaparece; el rojo sigue disponible con teclado y VoiceOver (al enfocarlo, la fila se abre). Deslizar no dispara la edición.
+- **Detalle:** tocar una categoría en "Por categoría" abre un panel desde abajo con el total del mes, la cantidad de gastos, un gráfico de los últimos 6 meses de esa categoría con su promedio y su presupuesto si existe, y los gastos del mes. Se cierra con la X, con Escape, tocando afuera o deslizando hacia abajo desde el encabezado. Si borrás o editás desde el panel, se actualiza.
+- **Éxito:** sin desborde a 375 px en claro y oscuro; con "Reducir movimiento" el panel aparece sin animación.

@@ -116,10 +116,11 @@ function chips(box, items, selected, onPick, dotFor) {
   }));
 }
 
-function bars(box, rows, label, isAnt) {
+function bars(box, rows, label, isAnt, onPick) {
   const max = rows.length ? rows[0][1] : 1;
   box.replaceChildren(...(rows.length ? rows.map(([id, v]) => {
-    const r = el("div", "bar" + (isAnt?.(id) ? " ant" : ""));
+    const r = el(onPick ? "button" : "div", "bar" + (isAnt?.(id) ? " ant" : ""));
+    if (onPick) { r.type = "button"; r.onclick = () => onPick(id); r.setAttribute("aria-label", `${label(id)}: ${fmt(v)}. Ver detalle`); }
     const track = el("div", "track"), fill = el("div", "fill");
     fill.style.width = `${Math.max(2, v / max * 100)}%`;
     track.append(fill);
@@ -174,7 +175,7 @@ function renderGastos(movs, r) {
 
   renderIngresos(r.total);
 
-  bars($("porCat"), r.porCat, id => CAT[id]?.label ?? id, id => CAT[id]?.h);
+  bars($("porCat"), r.porCat, id => CAT[id]?.label ?? id, id => CAT[id]?.h, abrirCategoria);
   bars($("porMedio"), r.porMedio, id => MEDIO[id] ?? id);
 
   const byDay = {};
@@ -216,8 +217,61 @@ function itemRow(g, conFecha = false) {
   del.type = "button"; del.setAttribute("aria-label", `Borrar ${CAT[g.cat]?.label ?? g.cat} ${fmt(g.monto)}`);
   del.onclick = () => borrar(g.id);
   row.append(edit, del);
+  swipeable(row, () => borrar(g.id));
   return row;
 }
+
+// Mail-style rows: drag left to uncover Borrar, past half the width deletes. A drag never opens the editor.
+let abierta = null;
+function swipeable(row, onDelete) {
+  const face = row.querySelector(".edit"), del = row.querySelector(".del"), W = 88;
+  let x0 = 0, y0 = 0, dx = 0, modo = null; // "x" or "y" once the gesture's direction is known
+  const set = v => { face.style.transform = v ? `translateX(${v}px)` : ""; };
+  const abrir = () => { if (abierta && abierta !== row) abierta._cerrar(); set(-W); row.classList.add("open"); abierta = row; };
+  const cerrar = row._cerrar = () => { set(0); row.classList.remove("open"); if (abierta === row) abierta = null; };
+  row.addEventListener("pointerdown", e => {
+    if (e.button || e.target === del) return;
+    if (abierta && abierta !== row) abierta._cerrar();
+    x0 = e.clientX; y0 = e.clientY; dx = 0; modo = null;
+  });
+  row.addEventListener("pointermove", e => {
+    if (modo === "y" || !e.buttons && e.pointerType === "mouse") return;
+    const mx = e.clientX - x0, my = e.clientY - y0;
+    if (!modo) {
+      if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+      modo = Math.abs(mx) > Math.abs(my) ? "x" : "y";
+      if (modo === "y") return;
+      row.classList.add("drag");
+      try { row.setPointerCapture(e.pointerId); } catch {} // throws if the pointer already ended
+    }
+    dx = Math.min(0, (row.classList.contains("open") ? -W : 0) + mx);
+    set(dx);
+  });
+  const fin = () => {
+    if (modo !== "x") return;
+    row.classList.remove("drag");
+    if (-dx > row.offsetWidth / 2) {
+      row.classList.add("open");
+      set(-row.offsetWidth);
+      setTimeout(() => { onDelete(); if (row.isConnected) cerrar(); }, calm.matches ? 0 : 180);
+    } else if (-dx > W / 2) abrir();
+    else cerrar();
+  };
+  row.addEventListener("pointerup", fin);
+  row.addEventListener("pointercancel", fin);
+  // The click that ends a drag, or a tap on an open row, only closes it.
+  row.addEventListener("click", e => {
+    if (e.target === del) return;
+    if (modo === "x" || row.classList.contains("open")) {
+      e.stopPropagation(); e.preventDefault();
+      if (modo !== "x") cerrar();
+      modo = null;
+    }
+  }, true);
+  del.addEventListener("focus", abrir);
+  del.addEventListener("blur", () => { if (!row.matches(":hover")) cerrar(); });
+}
+document.addEventListener("pointerdown", e => { if (abierta && !abierta.contains(e.target)) abierta._cerrar(); });
 
 // Search runs over every month, grouped by month with the total found.
 function renderBusqueda() {
@@ -287,6 +341,7 @@ function renderIngresos(gastado) {
     del.type = "button"; del.setAttribute("aria-label", `Borrar ingreso ${x.concepto} ${fmt(x.monto)}`);
     del.onclick = () => borrarIngreso(x.id);
     row.append(edit, del);
+    swipeable(row, () => borrarIngreso(x.id));
     return row;
   }));
   const copia = delMes.length ? [] : repetirIngresos(S.ingresos, view.y, view.m);
@@ -349,6 +404,88 @@ $("ingForm").addEventListener("submit", ev => {
 });
 $("iCancelar").onclick = resetIngresoForm;
 
+/* ---------- Category detail sheet ---------- */
+
+let sheetCat = null;
+function abrirCategoria(id) {
+  sheetCat = id;
+  renderSheet();
+  $("sheet").showModal();
+  $("sheetBody").scrollTop = 0;
+}
+
+function cerrarSheet() {
+  const d = $("sheet");
+  if (!d.open || d.classList.contains("closing")) return;
+  if (calm.matches) { d.close(); return; }
+  d.classList.add("closing");
+  d.addEventListener("animationend", () => { d.classList.remove("closing"); d.close(); }, { once: true });
+}
+$("sheet").addEventListener("close", () => { sheetCat = null; $("sheet").style.transform = ""; });
+$("sheet").addEventListener("cancel", e => { e.preventDefault(); cerrarSheet(); });
+// The panel fills the dialog, so a click whose target is the dialog itself landed on the backdrop.
+$("sheet").addEventListener("click", e => { if (e.target === $("sheet")) cerrarSheet(); });
+$("sheetClose").onclick = cerrarSheet;
+{
+  const head = $("sheetHead"), d = $("sheet");
+  let y0 = null;
+  head.addEventListener("pointerdown", e => {
+    if (e.target.closest("button")) return;
+    y0 = e.clientY;
+    try { head.setPointerCapture(e.pointerId); } catch {}
+    d.classList.add("drag");
+  });
+  head.addEventListener("pointermove", e => { if (y0 != null) d.style.transform = `translateY(${Math.max(0, e.clientY - y0)}px)`; });
+  const fin = e => {
+    if (y0 == null) return;
+    const dy = e.clientY - y0;
+    y0 = null;
+    d.classList.remove("drag");
+    if (dy > 90) cerrarSheet(); else d.style.transform = "";
+  };
+  head.addEventListener("pointerup", fin);
+  head.addEventListener("pointercancel", fin);
+}
+
+function renderSheet() {
+  const c = sheetCat;
+  if (!c) return;
+  const label = CAT[c]?.label ?? c;
+  const movs = movimientosDelMes(S.gastos, view.y, view.m).filter(g => g.cat === c)
+    .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.ts - a.ts);
+  const total = movs.reduce((s, g) => s + g.monto, 0);
+  $("sheetTitle").textContent = label;
+  $("sheetMes").textContent = monthFmt.format(new Date(view.y, view.m, 1));
+  $("sheetTotal").textContent = fmt(total);
+  const serie = serieMensual(S.gastos.filter(g => g.cat === c), view.y, view.m, 6);
+  const desde = serie.findIndex(s => s.total > 0);
+  const con = desde < 0 ? [] : serie.slice(desde);
+  const prom = con.length ? con.reduce((a, s) => a + s.total, 0) / con.length : 0;
+  $("sheetSub").textContent = (movs.length === 1 ? "1 gasto" : `${movs.length} gastos`) + (con.length > 1 ? ` · promedio ${pesos(prom)} por mes` : "");
+
+  // Six columns; the current month is solid, the budget is a dashed line. The total is already shown above.
+  const lim = S.presupuestos.cat[c];
+  const max = Math.max(...serie.map(s => s.total), lim || 0) || 1;
+  const plot = el("div", "mplot");
+  serie.forEach((s, i) => {
+    const col = el("div", "mcol" + (i === serie.length - 1 ? " cur" : ""));
+    const bar = el("div", "mbar" + (CAT[c]?.h ? " ant" : ""));
+    bar.style.height = `${s.total ? Math.max(3, s.total / max * 100) : 0}%`;
+    bar.style.setProperty("--i", i);
+    col.append(bar);
+    plot.append(col);
+  });
+  if (lim) { const l = el("div", "mlim"); l.style.bottom = `${lim / max * 100}%`; plot.append(l); }
+  const labels = el("div", "mlabels");
+  labels.append(...serie.map((s, i) => el("span", i === serie.length - 1 ? "cur" : null, mesCorto(s.y, s.m))));
+  $("sheetChart").replaceChildren(plot, labels);
+  $("sheetChart").setAttribute("aria-label", `${label}, últimos 6 meses: ` + serie.map(s => `${monthFmt.format(new Date(s.y, s.m, 1))} ${fmt(s.total)}`).join(", ") + (lim ? `. Presupuesto ${fmt(lim)}` : ""));
+
+  budgetBlock($("sheetBudget"), estadoPresupuesto(total, lim), false);
+  $("sheetLista").replaceChildren(...(movs.length ? movs.map(g => itemRow(g, true))
+    : [el("p", "empty", `Sin gastos en ${label} este mes.`)]));
+}
+
 function resetForm() {
   editingId = null;
   $("form").classList.remove("editing");
@@ -362,6 +499,7 @@ function resetForm() {
 function startEdit(id) {
   const g = S.gastos.find(x => x.id === id);
   if (!g) return;
+  if ($("sheet").open) $("sheet").close();
   editingId = id;
   cat = g.cat; medio = g.medio;
   $("monto").value = inputFmt(g.monto);
@@ -861,6 +999,7 @@ function render() {
     const r = resumen(movs, view.y, view.m);
     if (tab === "gastos") renderGastos(movs, r); else renderPresupuestos(r);
   } else if (tab === "fijos") renderFijos();
+  if ($("sheet").open) renderSheet();
   else {
     const last = Number(localStorage.getItem(BACKUP_KEY)) || 0;
     $("ultimaCopia").textContent = last ? `Última copia: ${new Date(last).toLocaleDateString("es-AR")}.` : "Todavía no guardaste ninguna copia.";

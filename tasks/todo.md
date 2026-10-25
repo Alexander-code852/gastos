@@ -41,3 +41,8 @@
 - [x] **14. Ingresos en la interfaz** (M: index.html, style.css, app.js).
 - [x] **15. Inflación en Meses** (S: index.html, app.js).
 - [x] **16. Revisión y publicación.**
+
+## Etapa 5
+- [x] **17. Deslizar para borrar** (S: app.js, style.css).
+- [x] **18. Panel de detalle por categoría** (M: index.html, style.css, app.js).
+- [x] **19. Revisión y publicación.**
