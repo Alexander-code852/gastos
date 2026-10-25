@@ -72,15 +72,18 @@ export function resumen(movs, y, m, now = new Date()) {
   };
 }
 
-// Validates an imported backup; returns clean expense objects or throws with a readable message.
+const positivo = v => typeof v === "number" && Number.isFinite(v) && v > 0;
+const mesKey = (y, m) => `${y}-${pad(m + 1)}`;
+
+// Validates an imported backup. v1 backups carry only expenses, so budgets and fixed expenses come back null (keep the current ones).
 export function leerBackup(obj) {
   const list = Array.isArray(obj) ? obj : obj?.gastos;
   if (!Array.isArray(list)) throw new Error("El archivo no es una copia de seguridad de Gastos Hormiga.");
-  return list.map((g, i) => {
+  const gastos = list.map((g, i) => {
     const monto = typeof g.monto === "number" ? g.monto : parseMonto(g.monto);
     if (!(monto > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(g.fecha ?? "")) throw new Error(`El gasto número ${i + 1} tiene datos inválidos.`);
     const cuotas = Number.isInteger(g.cuotas) && g.cuotas > 1 && g.cuotas <= 60 ? g.cuotas : 1;
-    return {
+    const out = {
       id: typeof g.id === "string" && g.id ? g.id : crypto.randomUUID(),
       monto,
       cat: CAT[g.cat] ? g.cat : "otros",
@@ -91,7 +94,96 @@ export function leerBackup(obj) {
       hormiga: !!g.hormiga,
       ts: Number.isFinite(g.ts) ? g.ts : Date.now(),
     };
+    if (typeof g.fijoId === "string" && g.fijoId) out.fijoId = g.fijoId;
+    return out;
   });
+
+  let presupuestos = null;
+  if (obj?.presupuestos && typeof obj.presupuestos === "object") {
+    const p = obj.presupuestos;
+    presupuestos = { cat: {} };
+    if (positivo(p.total)) presupuestos.total = p.total;
+    if (positivo(p.hormiga)) presupuestos.hormiga = p.hormiga;
+    for (const [id, v] of Object.entries(p.cat ?? {})) if (CAT[id] && positivo(v)) presupuestos.cat[id] = v;
+  }
+
+  let fijos = null;
+  if (Array.isArray(obj?.fijos)) {
+    fijos = obj.fijos.map((f, i) => {
+      if (!positivo(f.monto) || !Number.isInteger(f.dia) || f.dia < 1 || f.dia > 31 || !/^\d{4}-\d{2}$/.test(f.ultimoMes ?? ""))
+        throw new Error(`El gasto fijo número ${i + 1} tiene datos inválidos.`);
+      return {
+        id: typeof f.id === "string" && f.id ? f.id : crypto.randomUUID(),
+        nombre: String(f.nombre ?? "").slice(0, 40) || "Gasto fijo",
+        monto: f.monto,
+        cat: CAT[f.cat] ? f.cat : "otros",
+        medio: MEDIO[f.medio] ? f.medio : "efectivo",
+        dia: f.dia,
+        activo: f.activo !== false,
+        ultimoMes: f.ultimoMes,
+      };
+    });
+  }
+  return { gastos, presupuestos, fijos };
+}
+
+// null when there is no limit. "cerca" covers 80% up to exactly 100%.
+export function estadoPresupuesto(gastado, limite) {
+  if (!positivo(limite)) return null;
+  const pct = gastado / limite;
+  return {
+    gastado, limite,
+    queda: Math.round((limite - gastado) * 100) / 100,
+    pct,
+    estado: pct > 1 ? "pasado" : pct >= 0.8 ? "cerca" : "bien",
+  };
+}
+
+// Warns only on the save that crosses 80% or 100%, so it never repeats on every later expense.
+export function avisoPresupuesto(antes, despues, limite) {
+  if (!positivo(limite)) return null;
+  const r = n => Math.round(n * 100) / 100;
+  if (antes <= limite && despues > limite) return { tipo: "pasado", monto: r(despues - limite) };
+  if (antes < limite * 0.8 && despues >= limite * 0.8) return { tipo: "cerca", monto: r(limite - despues) };
+  return null;
+}
+
+// What can still be spent per day, counting today; only meaningful for the current or a future month.
+export function porDia(queda, y, m, now = new Date()) {
+  if (!(queda > 0)) return null;
+  const last = new Date(y, m + 1, 0).getDate();
+  const cur = now.getFullYear() * 12 + now.getMonth(), target = y * 12 + m;
+  if (target < cur) return null;
+  const dias = target === cur ? last - now.getDate() + 1 : last;
+  return Math.floor(queda / dias);
+}
+
+// ultimoMes for a new or resumed fixed expense: the previous month makes this month's charge count.
+export function ultimoMesInicial(hoy, incluirEsteMes) {
+  const d = new Date(hoy.getFullYear(), hoy.getMonth() - (incluirEsteMes ? 1 : 0), 1);
+  return mesKey(d.getFullYear(), d.getMonth());
+}
+
+// Expenses due since each fixed expense's ultimoMes. Ids are "<fijoId>:<YYYY-MM>", and ultimoMes only moves forward,
+// so running it again never duplicates and deleting a generated expense never brings it back.
+export function fijosPendientes(fijos, hoy = new Date()) {
+  const cur = hoy.getFullYear() * 12 + hoy.getMonth();
+  const gastos = [];
+  const next = fijos.map(f => {
+    if (!f.activo) return f;
+    const [uy, um] = f.ultimoMes.split("-").map(Number);
+    let ultimoMes = f.ultimoMes;
+    for (let t = uy * 12 + um; t <= cur; t++) {
+      const y = Math.floor(t / 12), m = t % 12;
+      const dia = Math.min(f.dia, new Date(y, m + 1, 0).getDate());
+      if (t === cur && dia > hoy.getDate()) break;
+      ultimoMes = mesKey(y, m);
+      gastos.push({ id: `${f.id}:${ultimoMes}`, fijoId: f.id, monto: f.monto, cat: f.cat, medio: f.medio, cuotas: 1,
+        nota: f.nombre, fecha: `${ultimoMes}-${pad(dia)}`, hormiga: false, ts: hoy.getTime() });
+    }
+    return ultimoMes === f.ultimoMes ? f : { ...f, ultimoMes };
+  });
+  return { gastos, fijos: next };
 }
 
 const csvCell = v => /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
