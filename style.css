@@ -224,7 +224,13 @@ html:has(#nuevo[open]) .fab svg { transform: rotate(135deg); }
 .mid-h { display: flex; align-items: center; justify-content: space-between; }
 .mid-h .link { min-height: 32px; padding: 4px 0; }
 .nuevo-mid .sublbl { margin: 0; }
-.cat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+/* One sideways row, most used first: the panel stays short enough for an iPhone SE */
+.cat-row, .one-row { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; }
+.cat-row::-webkit-scrollbar, .one-row::-webkit-scrollbar { display: none; }
+.cat-row .cat-op { flex: 0 0 76px; scroll-snap-align: start; }
+.one-row .chip { flex: none; white-space: nowrap; }
+.cat-auto { margin: 4px 2px 0; font-size: .82rem; color: var(--accent); font-weight: 600; }
+.cat-auto:empty { display: none; }
 .cat-op { display: grid; justify-items: center; gap: 4px; border: 1px solid transparent; border-radius: 14px; background: transparent; padding: 8px 2px 6px; min-width: 0; transition: background .2s, border-color .2s; }
 .cat-op-l { font-size: .74rem; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cat-op[aria-checked="true"] { background: var(--accent-soft); border-color: var(--accent); }
@@ -525,3 +531,30 @@ td.num { font-variant-numeric: tabular-nums; }
 .cal-leg i { width: 11px; height: 11px; border-radius: 3px; }
 .cal-leg .n1 { background: var(--cal-1); margin-left: 3px; } .cal-leg .n2 { background: var(--cal-2); }
 .cal-leg .n3 { background: var(--cal-3); } .cal-leg .n4 { background: var(--cal-4); margin-right: 3px; }
+
+/* Installments still to pay */
+.cuota-mes { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: baseline; border: 0; border-bottom: 1px solid var(--line); background: none; padding: 11px 0; text-align: left; }
+.cuota-mes:last-of-type { border-bottom: 0; }
+.cuota-mes .cm-mes { font-weight: 600; }
+.cuota-mes .num { font-weight: 700; }
+.cuota-mes .num::after { content: " ›"; color: var(--muted); }
+#cuotasCard .card-h .num { color: var(--ink); }
+#cuotasLista > p { margin-top: 6px; }
+/* Short phones: a lower keypad leaves room for the note and the categories */
+@media (max-height: 700px) {
+  .keypad { gap: 5px; }
+  .keypad button { min-height: 38px; font-size: 1.2rem; }
+  .nuevo-top { gap: 6px; padding-top: 4px; }
+  .nuevo-form #monto { font-size: clamp(1.9rem, 10vw, 2.4rem); }
+  .nuevo-mid { gap: 12px; padding-block: 10px; }
+  #nuevo .sheet-h { padding-top: 14px; }
+  #nuevo .sheet-h h2 { font-size: 1.15rem; }
+  #nuevo .x { width: 34px; height: 34px; }
+  .seg button { padding-block: 5px; }
+  .monto-calc:empty { display: none; }
+  .nuevo-mid { gap: 10px; }
+  .nuevo-mid > div { gap: 6px; }
+  .mid-h .link { min-height: 24px; padding: 0; }
+  .cat-row .cat-op { padding-block: 5px 3px; }
+  .nuevo-foot { padding-top: 8px; gap: 8px; }
+}

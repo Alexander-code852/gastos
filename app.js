@@ -1,7 +1,7 @@
 import { CATS, CAT, leerCategorias, usarCategorias, MEDIOS, MEDIO, parseMonto, parteCuota, movimientosDelMes, resumen, leerBackup, aCSV,
   estadoPresupuesto, avisoPresupuesto, porDia, fijosPendientes, ultimoMesInicial,
   serieMensual, compararCategorias, escalaY, frecuentes, buscar, leerIPC, aPesosDe, repetirIngresos,
-  evaluarMonto, gastoPorDia, teclear } from "./logic.js";
+  evaluarMonto, gastoPorDia, teclear, cuotasPendientes, sugerirCategoria, notasUsadas, ordenarCategorias } from "./logic.js";
 
 const KEYS = { gastos: "gastos.v1", presupuestos: "gastos.presupuestos", fijos: "gastos.fijos", ingresos: "gastos.ingresos", categorias: "gastos.categorias" };
 const INSTALAR_KEY = "gastos.instalarCerrado", BACKUP_KEY = "gastos.ultimaCopia", TAB_KEY = "gastos.tab", RANGO_KEY = "gastos.rango", AJUSTE_KEY = "gastos.ajuste", IPC_KEY = "gastos.ipc";
@@ -34,6 +34,9 @@ let tab = (() => { try { return localStorage.getItem(TAB_KEY) || "gastos"; } cat
 const ym = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
 let cat = CATS[0][0], medio = "efectivo", editingId = null, editingFijo = null, editingIngreso = null, undoState = null, toastTimer = 0;
 let modo = "gasto", fechaOtro = false; // the + sheet: what it is loading, and whether "Otro día" was picked
+let catManual = false; // a category tapped by hand in this sheet is never replaced by the note's suggestion
+let antesAuto = null; // category and hormiga box before the note's suggestion, restored if the note stops matching
+let hormigaManual = false; // a hormiga box ticked by hand is never changed by a suggestion
 
 // Writes every changed key first and only then swaps memory; if any write fails, the earlier ones are rolled back.
 function commit(changes) {
@@ -198,15 +201,17 @@ function renderForm() {
   $("modo").hidden = editando; // a saved expense cannot turn into income
   for (const e of document.querySelectorAll(".solo-gasto")) e.hidden = !gasto;
   $("form").classList.toggle("ingreso", !gasto);
-  $("nota").placeholder = gasto ? "Nota (opcional)" : "Concepto: sueldo, changa, venta…";
+  $("nota").placeholder = gasto ? "¿En qué? Coto, Netflix, Uber…" : "Concepto: sueldo, changa, venta…";
   $("nota").maxLength = gasto ? 80 : 40;
   $("nota").setAttribute("aria-label", gasto ? "Nota" : "Concepto del ingreso");
+  if (gasto) $("nota").setAttribute("list", "notasList"); else $("nota").removeAttribute("list");
+  if (!gasto) $("catAuto").textContent = "";
 
-  $("cats").replaceChildren(...CATS.map(([id, label]) => {
+  $("cats").replaceChildren(...ordenarCategorias(CATS, S.gastos).map(([id, label]) => {
     const b = el("button", "cat-op");
     b.type = "button"; b.setAttribute("role", "radio"); b.setAttribute("aria-checked", String(id === cat));
     b.append(catIcon(id), el("span", "cat-op-l", label));
-    b.onclick = () => { cat = id; $("esHormiga").checked = CAT[id].h; renderForm(); };
+    b.onclick = () => { cat = id; catManual = true; $("catAuto").textContent = ""; $("esHormiga").checked = CAT[id].h; renderForm(); };
     return b;
   }));
   chips($("medios"), MEDIOS, medio, id => { medio = id; if (id !== "credito") $("cuotas").value = "1"; renderForm(); });
@@ -240,7 +245,29 @@ $("keypad").addEventListener("click", e => {
   renderForm();
 });
 $("fecha").addEventListener("change", renderForm);
+$("esHormiga").addEventListener("change", () => { hormigaManual = true; });
 
+// Sideways only: scrollIntoView would also scroll the panel and hide the note being typed.
+const verCatElegida = () => {
+  const row = $("cats"), b = row.querySelector('[aria-checked="true"]');
+  if (b) row.scrollTo({ left: b.offsetLeft - row.offsetLeft - (row.clientWidth - b.offsetWidth) / 2, behavior: calm.matches ? "auto" : "smooth" });
+};
+
+// Typing a note picks the category used before with it, until a category is tapped by hand; edits are left alone.
+$("nota").addEventListener("input", () => {
+  if (modo !== "gasto" || editingId || catManual) return;
+  const s = sugerirCategoria(S.gastos, $("nota").value);
+  const txt = s ? `Categoría según tus gastos anteriores: ${CAT[s].label}` : "";
+  if ($("catAuto").textContent !== txt) $("catAuto").textContent = txt; // VoiceOver may re-read identical text
+  if (!s && antesAuto) { cat = antesAuto.cat; if (!hormigaManual) $("esHormiga").checked = antesAuto.h; antesAuto = null; }
+  else if (s && s !== cat) {
+    antesAuto ??= { cat, h: $("esHormiga").checked };
+    cat = s;
+    if (!hormigaManual) $("esHormiga").checked = CAT[s].h;
+  } else return;
+  renderForm();
+  verCatElegida();
+});
 function renderGastos(movs, r) {
   countTo($("total"), r.total);
   $("total").style.setProperty("--n", fmt(r.total).length);
@@ -273,6 +300,7 @@ function renderGastos(movs, r) {
   }) : [el("p", "empty", `No hay gastos en ${$("mes").textContent.toLowerCase()}. Tocá + para cargar el primero.`)]));
   renderBusqueda();
   renderRapidos();
+  renderCuotas();
 
   const last = Number(localStorage.getItem(BACKUP_KEY)) || 0;
   const diasSinCopia = (Date.now() - last) / 864e5;
@@ -377,6 +405,27 @@ function renderBusqueda() {
   }));
 }
 $("buscar").addEventListener("input", renderBusqueda);
+
+// What the card still owes in installments, month by month from next month; tapping one goes there.
+function renderCuotas() {
+  const r = cuotasPendientes(S.gastos, new Date());
+  $("cuotasCard").hidden = !r.length;
+  if (!r.length) return;
+  $("cuotasTotal").textContent = fmt(r.reduce((s, c) => s + c.total, 0));
+  const filas = r.slice(0, 6).map(c => {
+    const mes = monthFmt.format(new Date(c.y, c.m, 1)), compras = c.compras === 1 ? "1 compra" : `${c.compras} compras`;
+    const corto = cap(mes.split(" ")[0]) + (c.y !== new Date().getFullYear() ? ` ${c.y}` : ""); // "Noviembre", "Enero 2027"
+    const b = el("button", "cuota-mes");
+    b.type = "button";
+    b.append(el("span", "cm-mes", corto), el("span", "sub", compras), el("span", "num", fmt(c.total)));
+    b.setAttribute("aria-label", `${mes}: ${fmt(c.total)} en ${compras}. Ver ese mes`);
+    b.onclick = () => { view = { y: c.y, m: c.m }; render(); window.scrollTo(0, 0); };
+    return b;
+  });
+  const ultimo = r.at(-1);
+  if (r.length > 6) filas.push(el("p", "sub", `Y ${r.length - 6} meses más, hasta ${monthFmt.format(new Date(ultimo.y, ultimo.m, 1)).toLowerCase()}.`));
+  $("cuotasLista").replaceChildren(...filas);
+}
 
 function renderRapidos() {
   const fr = frecuentes(S.gastos, new Date());
@@ -573,7 +622,7 @@ $("catForm").addEventListener("submit", ev => {
   if (!guardarCategorias([...S.categorias, { id, label, h: $("catHormiga").checked, oculta: false }], `Agregaste ${label}.`)) return;
   $("catForm").reset();
   renderCategorias();
-  if (!editingId) { cat = id; $("esHormiga").checked = CAT[id].h; renderForm(); }
+  if (!editingId) { cat = id; catManual = true; $("esHormiga").checked = CAT[id].h; renderForm(); }
 });
 
 /* ---------- Category detail sheet ---------- */
@@ -598,8 +647,10 @@ $("nuevo").addEventListener("close", () => { if (editingId || editingIngreso) re
 
 function abrirNuevo() {
   $("formErr").hidden = true;
+  $("notasList").replaceChildren(...notasUsadas(S.gastos).map(n => Object.assign(el("option"), { value: n })));
   $("nuevo").showModal();
   $("monto").focus();
+  verCatElegida();
 }
 $("fab").onclick = () => {
   if (editingId || editingIngreso) resetForm();
@@ -675,7 +726,9 @@ function renderSheet() {
 
 function resetForm() {
   editingId = editingIngreso = null;
-  fechaOtro = false;
+  fechaOtro = catManual = hormigaManual = false;
+  antesAuto = null;
+  $("catAuto").textContent = "";
   $("form").classList.remove("editing");
   $("monto").value = ""; $("nota").value = ""; $("cuotas").value = "1";
   $("fecha").value = fechaAuto = today();

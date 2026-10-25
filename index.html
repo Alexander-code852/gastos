@@ -68,6 +68,11 @@
       <button class="secondary repetir" id="iAbrir" type="button">+ Agregar ingreso</button>
     </section>
 
+    <section class="card" id="cuotasCard" aria-labelledby="cuotasH" hidden>
+      <div class="card-h"><h2 id="cuotasH">Cuotas que vienen</h2><span class="num" id="cuotasTotal"></span></div>
+      <div id="cuotasLista"></div>
+    </section>
+
     </div>
 
     <div class="gcol">
@@ -186,13 +191,19 @@
         <p class="form-err" id="formErr" role="alert" hidden>Escribí un monto mayor a cero, por ejemplo 1500 o 1.500,50.</p>
       </div>
       <div class="nuevo-mid">
+        <!-- The note goes first: typing it picks the category -->
+        <div>
+          <input id="nota" class="nota" placeholder="¿En qué? Coto, Netflix, Uber…" maxlength="80" aria-label="Nota" autocomplete="off" list="notasList" aria-describedby="catAuto">
+          <datalist id="notasList"></datalist>
+          <p class="cat-auto" id="catAuto" aria-live="polite"></p>
+        </div>
         <div class="solo-gasto">
           <div class="mid-h"><span class="sublbl" id="catsLbl">Categoría</span><button type="button" class="link" id="editarCats">Editar</button></div>
-          <div id="cats" class="cat-grid" role="radiogroup" aria-labelledby="catsLbl"></div>
+          <div id="cats" class="cat-row" role="radiogroup" aria-labelledby="catsLbl"></div>
         </div>
         <div class="solo-gasto">
           <span class="sublbl" id="mediosLbl">Medio de pago</span>
-          <div id="medios" class="chips small" role="radiogroup" aria-labelledby="mediosLbl"></div>
+          <div id="medios" class="chips small one-row" role="radiogroup" aria-labelledby="mediosLbl"></div>
           <div class="cuotas-row" id="cuotasRow" hidden>
             <label for="cuotas">Cuotas</label>
             <select id="cuotas">
@@ -208,7 +219,6 @@
           <div class="chips small" id="fechas" role="radiogroup" aria-labelledby="fechaLbl"></div>
           <input id="fecha" type="date" aria-label="Fecha" hidden>
         </div>
-        <input id="nota" class="nota" placeholder="Nota (opcional)" maxlength="80" aria-label="Nota" autocomplete="off">
         <label class="check solo-gasto"><input type="checkbox" id="esHormiga"> Es un gasto hormiga</label>
       </div>
       <div class="nuevo-foot">
